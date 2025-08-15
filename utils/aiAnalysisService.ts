@@ -124,10 +124,27 @@ export async function runAIAnalysis(
       throw new Error('分析結果が返されませんでした');
     }
 
-    // JSON解析
+    // JSON解析 - より厳密な処理
     console.log('🔍 JSON解析開始...');
-    const analysisResult = parseAnalysisResponse(data.analysis);
-    console.log('✅ 解析完了:', analysisResult);
+    console.log('📄 Raw analysis field:', data.analysis);
+    
+    let analysisResult;
+    try {
+      // 文字列から実際のJSONオブジェクトを解析
+      const analysisString = typeof data.analysis === 'string' ? data.analysis : JSON.stringify(data.analysis);
+      console.log('📝 Analysis string (最初の300文字):', analysisString.substring(0, 300));
+      
+      const parsedAnalysis = JSON.parse(analysisString);
+      console.log('✅ Parsed analysis keys:', Object.keys(parsedAnalysis));
+      
+      analysisResult = parseAnalysisResponse(JSON.stringify(parsedAnalysis));
+    } catch (directParseError) {
+      console.error('❌ 直接解析失敗:', directParseError);
+      // フォールバック: 従来の方法で解析
+      analysisResult = parseAnalysisResponse(data.analysis);
+    }
+    
+    console.log('✅ 最終解析完了:', analysisResult);
 
     return {
       ...analysisResult,
