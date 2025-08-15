@@ -81,41 +81,25 @@ export default function AIAnalysisScreen({
   const renderSummaryView = () => {
     console.log('📊 サマリー表示:', analysisResult?.summary);
     
-    return (
-      <View style={styles.analysisSection}>
-        <Text style={styles.sectionTitle}>🤖 AI分析サマリー</Text>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryText}>{analysisResult?.summary || 'データなし'}</Text>
-          <View style={styles.confidenceContainer}>
-            <Text style={styles.confidenceText}>
-              分析信頼度: {Math.round((analysisResult?.confidence || 0) * 100)}%
-            </Text>
-          </View>
+    // まず最小構成でテスト
+    try {
+      return (
+        <View style={styles.testContainer}>
+          <Text style={styles.testText}>🤖 AI分析結果</Text>
+          <Text style={styles.testText}>サマリー: {analysisResult?.summary}</Text>
+          <Text style={styles.testText}>信頼度: {Math.round((analysisResult?.confidence || 0) * 100)}%</Text>
+          <Text style={styles.testText}>節約額: ¥{analysisResult?.profitAnalysis?.costSavings}</Text>
+          <Text style={styles.testText}>リスク: {analysisResult?.riskAssessment?.overallRisk}/10</Text>
         </View>
-
-        {/* クイック指標 */}
-        <View style={styles.quickMetrics}>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>
-              ¥{analysisResult?.profitAnalysis?.costSavings || 0}
-            </Text>
-            <Text style={styles.metricLabel}>節約可能額</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>
-              {analysisResult?.riskAssessment?.overallRisk || 0}/10
-            </Text>
-            <Text style={styles.metricLabel}>リスクスコア</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>
-              {analysisResult?.packagingAdvice?.budgetBreakdown?.length || 0}
-            </Text>
-            <Text style={styles.metricLabel}>梱包提案</Text>
-          </View>
+      );
+    } catch (error) {
+      console.error('❌ サマリー描画エラー:', error);
+      return (
+        <View style={styles.testContainer}>
+          <Text style={styles.testText}>描画エラーが発生しました</Text>
         </View>
-      </View>
-    );
+      );
+    }
   };
 
   const renderContent = () => {
@@ -362,6 +346,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#856404',
     marginBottom: 4,
+  },
+  testContainer: {
+    backgroundColor: '#e8f5e8',
+    padding: 16,
+    margin: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#4caf50',
+  },
+  testText: {
+    fontSize: 14,
+    color: '#2e7d32',
+    marginBottom: 8,
+    fontWeight: '500',
   },
   analysisSection: {
     marginBottom: 20,
