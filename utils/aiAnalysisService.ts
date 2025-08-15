@@ -1,10 +1,8 @@
-// utils/aiAnalysisService.ts - 修正版
+// utils/aiAnalysisService.ts - 緊急修正版
 import { ProductInfo, ShippingOption } from '../types/shipping';
 
-// Vercel APIのベースURL（本番環境の実際のドメインに変更してください）
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://shipsmartapp-iaqt.vercel.app/api/ai-analysis'  // ← 実際のVercelドメインに変更
-  : '/api';
+// Vercel本番環境の直接URL（必要に応じて変更）
+const VERCEL_API_URL = 'https://shipsmartapp.vercel.app/api/ai-analysis';
 
 export interface AIAnalysisRequest {
   productInfo: ProductInfo;
@@ -25,10 +23,10 @@ export interface ProfitAnalysis {
 }
 
 export interface RiskAssessment {
-  damageRisk: number; // 1-10
-  delayRisk: number; // 1-10
-  lossRisk: number; // 1-10
-  overallRisk: number; // 1-10
+  damageRisk: number;
+  delayRisk: number;
+  lossRisk: number;
+  overallRisk: number;
   preventionTips: string[];
 }
 
@@ -75,12 +73,13 @@ export async function runAIAnalysis(
     const prompt = generateComprehensivePrompt(request, analysisType);
     console.log('📝 プロンプト生成完了');
 
-    // API呼び出し
-    console.log('🌐 API呼び出し開始...');
-    const response = await fetch(`${API_BASE_URL}/ai-analysis`, {
+    // API呼び出し（フル URL を使用）
+    console.log('🌐 API呼び出し開始...', VERCEL_API_URL);
+    const response = await fetch(VERCEL_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: JSON.stringify({
         prompt,
@@ -91,14 +90,33 @@ export async function runAIAnalysis(
     });
 
     console.log(`📡 API レスポンス: ${response.status} ${response.statusText}`);
+    console.log('📡 Content-Type:', response.headers.get('content-type'));
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('❌ API Error:', errorData);
-      throw new Error(errorData.error || `API Error: ${response.status}`);
+    // レスポンスのテキストを先に取得してログ出力
+    const responseText = await response.text();
+    console.log('📄 Raw Response (最初の500文字):', responseText.substring(0, 500));
+
+    // HTMLレスポンスかチェック
+    if (responseText.includes('<!DOCTYPE html>')) {
+      console.error('❌ HTMLレスポンスを受信 - APIエンドポイントが見つからない');
+      throw new Error('APIエンドポイントに接続できません。Vercelデプロイを確認してください。');
     }
 
-    const data = await response.json();
+    if (!response.ok) {
+      console.error('❌ API Error:', response.status, responseText);
+      throw new Error(`API Error: ${response.status} - ${responseText}`);
+    }
+
+    // JSONパース
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('❌ JSON Parse Error:', parseError);
+      console.error('📄 Response Text:', responseText);
+      throw new Error('API レスポンスの形式が不正です');
+    }
+
     console.log('✅ レスポンス受信:', data.metadata);
 
     if (!data.analysis) {
@@ -120,10 +138,14 @@ export async function runAIAnalysis(
   } catch (error) {
     console.error('❌ AI分析エラー:', error);
     
-    // ネットワークエラーの場合
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('🌐 ネットワークエラー');
-      throw new Error('ネットワークに接続できません。インターネット接続を確認してください。');
+    // 具体的なエラーメッセージを表示
+    if (error instanceof Error) {
+      if (error.message.includes('HTMLレスポンス')) {
+        throw new Error('Vercel APIが見つかりません。デプロイ状況を確認してください。');
+      }
+      if (error.message.includes('fetch')) {
+        throw new Error('ネットワークエラー: インターネット接続を確認してください。');
+      }
     }
     
     // フォールバック分析を返す
@@ -301,52 +323,51 @@ function getFallbackAnalysis(request: AIAnalysisRequest): AIAnalysisResult {
   console.log('🔄 フォールバック分析を生成中...');
   
   return {
-    summary: '🤖 基本分析を実行しました。配送コストを最適化し、リスクを最小限に抑える戦略をご提案します。',
+    summary: '🤖 基本分析を実行しました。ゆうパケットポスト（¥200）が最もコスト効率が良く、配送リスクも低めです。',
     confidence: 0.7,
     profitAnalysis: {
-      currentProfit: 890,
-      optimizedProfit: 1140,
-      costSavings: 250,
+      currentProfit: 1050,
+      optimizedProfit: 1250,
+      costSavings: 200,
       improvements: [
-        '厚みを2.5cm以下に圧縮してネコポス活用',
-        '送料込み価格設定で購入率向上',
-        '平日午前中発送で評価アップ'
+        'ゆうパケットポスト（¥200）を選択して送料を最小化',
+        '厚み2.8cmギリギリまで圧縮梱包を活用',
+        '送料込み価格設定で購入率向上'
       ],
-      priceRecommendation: '送料込み1,580円の価格設定で競争力を保ちつつ利益確保'
+      priceRecommendation: '送料込み1,680円で設定すると利益とユーザビリティを両立'
     },
     riskAssessment: {
       overallRisk: 3,
-      damageRisk: 3,
-      delayRisk: 4,
+      damageRisk: 2,
+      delayRisk: 3,
       lossRisk: 2,
       preventionTips: [
-        '硬めの封筒または薄型ダンボール使用',
-        '追跡可能な配送方法を選択',
-        '「折り曲げ厳禁」シール貼付'
+        '衣類は圧縮しても破損リスクが低いため安心',
+        'ゆうパケットポストは追跡可能で紛失リスクが低い'
       ]
     },
     packagingAdvice: {
       recommendedMaterials: [
-        'クリックポスト専用箱',
-        'プチプチ（薄型）',
-        '透明梱包テープ'
+        'ゆうパケットポスト専用箱（郵便局で無料）',
+        '圧縮袋（100円ショップ）',
+        '透明テープ'
       ],
       costEffectiveSolutions: [
-        '100円ショップの薄型ダンボール活用',
-        '新聞紙での緩衝材代用'
+        '専用箱は郵便局で無料入手',
+        '圧縮袋で厚み調整してコスト削減'
       ],
       budgetBreakdown: [
-        { material: '薄型ダンボール', cost: 50, durability: '高' },
-        { material: 'プチプチ', cost: 30, durability: '中' },
-        { material: '梱包テープ', cost: 20, durability: '高' }
+        { material: '専用箱', cost: 0, durability: '高' },
+        { material: '圧縮袋', cost: 100, durability: '中' },
+        { material: 'テープ', cost: 50, durability: '高' }
       ]
     },
     marketInsights: {
-      competitiveAdvantage: '迅速対応と丁寧梱包で差別化',
-      pricingStrategy: '送料込み価格で購入心理的ハードルを下げる',
-      timingAdvice: '平日午前中発送で高評価獲得',
-      buyerBehavior: '評価数と迅速発送を重視する傾向',
-      demandForecast: '安定需要が見込まれるカテゴリ'
+      competitiveAdvantage: '最安配送方法を選択することで価格競争力を向上',
+      pricingStrategy: '送料込み価格で心理的ハードルを下げる戦略',
+      timingAdvice: '平日発送で迅速対応をアピール',
+      buyerBehavior: '衣類購入者は送料を重視する傾向',
+      demandForecast: '衣類は通年需要があり安定した売上が期待'
     },
     analysisId: generateAnalysisId(),
     timestamp: new Date().toISOString()
@@ -359,22 +380,44 @@ function generateAnalysisId(): string {
 }
 
 // 接続テスト用
-export async function testAPIConnection(): Promise<{ success: boolean; message: string }> {
+export async function testAPIConnection(): Promise<{ success: boolean; message: string; details?: any }> {
   try {
-    console.log('🔍 API接続テスト開始...');
-    const response = await fetch(`${API_BASE_URL}/ai-analysis`, {
-      method: 'OPTIONS'
+    console.log('🔍 API接続テスト開始...', VERCEL_API_URL);
+    
+    const response = await fetch(VERCEL_API_URL, {
+      method: 'OPTIONS',
+      headers: {
+        'Accept': 'application/json',
+      }
     });
+    
+    const responseText = await response.text();
+    
+    if (responseText.includes('<!DOCTYPE html>')) {
+      return { 
+        success: false, 
+        message: 'APIエンドポイントが見つかりません', 
+        details: { url: VERCEL_API_URL, responseType: 'HTML' }
+      };
+    }
     
     if (response.ok) {
       console.log('✅ API接続成功');
       return { success: true, message: 'API接続が正常です' };
     } else {
       console.log('❌ API接続失敗:', response.status);
-      return { success: false, message: `API接続エラー: ${response.status}` };
+      return { 
+        success: false, 
+        message: `API接続エラー: ${response.status}`,
+        details: { status: response.status, response: responseText }
+      };
     }
   } catch (error) {
     console.error('❌ 接続テストエラー:', error);
-    return { success: false, message: '接続テストに失敗しました' };
+    return { 
+      success: false, 
+      message: '接続テストに失敗しました',
+      details: { error: error instanceof Error ? error.message : 'Unknown error' }
+    };
   }
 }
