@@ -146,8 +146,167 @@ export default function AIAnalysisScreen({
       );
     }
 
-    // 分析結果がある場合
-    return renderSummaryView();
+    // 分析結果表示 - シンプルな構造で段階的に修正
+    switch (activeTab) {
+      case 'summary':
+        return renderSimpleSummary();
+      case 'profit':
+        return renderSimpleProfit();
+      case 'risk':
+        return renderSimpleRisk();
+      case 'packaging':
+        return renderSimplePackaging();
+      case 'market':
+        return renderSimpleMarket();
+      default:
+        return renderSimpleSummary();
+    }
+  };
+
+  // シンプルなサマリー表示
+  const renderSimpleSummary = () => {
+    return (
+      <View style={styles.simpleContainer}>
+        <Text style={styles.simpleTitle}>🤖 AI分析サマリー</Text>
+        
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleText}>
+            {analysisResult?.summary || 'サマリーデータがありません'}
+          </Text>
+        </View>
+
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>分析信頼度</Text>
+          <Text style={styles.simpleValue}>
+            {Math.round((analysisResult?.confidence || 0) * 100)}%
+          </Text>
+        </View>
+
+        <View style={styles.metricsRow}>
+          <View style={styles.metricBox}>
+            <Text style={styles.metricNumber}>¥{analysisResult?.profitAnalysis?.costSavings || 0}</Text>
+            <Text style={styles.metricLabel}>節約可能額</Text>
+          </View>
+          <View style={styles.metricBox}>
+            <Text style={styles.metricNumber}>{analysisResult?.riskAssessment?.overallRisk || 0}/10</Text>
+            <Text style={styles.metricLabel}>リスクスコア</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  // シンプルな利益表示
+  const renderSimpleProfit = () => {
+    return (
+      <View style={styles.simpleContainer}>
+        <Text style={styles.simpleTitle}>💰 利益分析</Text>
+        
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>現在の利益</Text>
+          <Text style={styles.simpleValue}>¥{analysisResult?.profitAnalysis?.currentProfit || 0}</Text>
+        </View>
+
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>最適化後の利益</Text>
+          <Text style={styles.simpleValue}>¥{analysisResult?.profitAnalysis?.optimizedProfit || 0}</Text>
+        </View>
+
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>価格推奨</Text>
+          <Text style={styles.simpleText}>
+            {analysisResult?.profitAnalysis?.priceRecommendation || 'なし'}
+          </Text>
+        </View>
+
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>改善提案</Text>
+          {analysisResult?.profitAnalysis?.improvements?.map((item, index) => (
+            <Text key={index} style={styles.listItem}>• {item}</Text>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // シンプルなリスク表示
+  const renderSimpleRisk = () => {
+    return (
+      <View style={styles.simpleContainer}>
+        <Text style={styles.simpleTitle}>⚠️ リスク分析</Text>
+        
+        <View style={styles.metricsRow}>
+          <View style={styles.metricBox}>
+            <Text style={styles.metricNumber}>{analysisResult?.riskAssessment?.damageRisk || 0}</Text>
+            <Text style={styles.metricLabel}>破損リスク</Text>
+          </View>
+          <View style={styles.metricBox}>
+            <Text style={styles.metricNumber}>{analysisResult?.riskAssessment?.delayRisk || 0}</Text>
+            <Text style={styles.metricLabel}>遅延リスク</Text>
+          </View>
+        </View>
+
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>予防策</Text>
+          {analysisResult?.riskAssessment?.preventionTips?.map((tip, index) => (
+            <Text key={index} style={styles.listItem}>• {tip}</Text>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // シンプルな梱包表示
+  const renderSimplePackaging = () => {
+    return (
+      <View style={styles.simpleContainer}>
+        <Text style={styles.simpleTitle}>📦 梱包アドバイス</Text>
+        
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>推奨梱包材</Text>
+          {analysisResult?.packagingAdvice?.recommendedMaterials?.map((material, index) => (
+            <Text key={index} style={styles.listItem}>• {material}</Text>
+          ))}
+        </View>
+
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>コスト削減案</Text>
+          {analysisResult?.packagingAdvice?.costEffectiveSolutions?.map((solution, index) => (
+            <Text key={index} style={styles.listItem}>• {solution}</Text>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // シンプルな市場表示
+  const renderSimpleMarket = () => {
+    return (
+      <View style={styles.simpleContainer}>
+        <Text style={styles.simpleTitle}>📈 市場分析</Text>
+        
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>価格戦略</Text>
+          <Text style={styles.simpleText}>
+            {analysisResult?.marketInsights?.pricingStrategy || 'なし'}
+          </Text>
+        </View>
+
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>タイミングアドバイス</Text>
+          <Text style={styles.simpleText}>
+            {analysisResult?.marketInsights?.timingAdvice || 'なし'}
+          </Text>
+        </View>
+
+        <View style={styles.simpleCard}>
+          <Text style={styles.simpleLabel}>購買行動</Text>
+          <Text style={styles.simpleText}>
+            {analysisResult?.marketInsights?.buyerBehavior || 'なし'}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -360,6 +519,92 @@ const styles = StyleSheet.create({
     color: '#2e7d32',
     marginBottom: 8,
     fontWeight: '500',
+  },
+  switchButton: {
+    backgroundColor: '#4caf50',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  switchButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // シンプルなレイアウト用スタイル
+  simpleContainer: {
+    padding: 16,
+  },
+  simpleTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  simpleCard: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  simpleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+  simpleValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#8B5CF6',
+  },
+  simpleText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  metricBox: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 8,
+    flex: 1,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  metricNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#8B5CF6',
+    marginBottom: 4,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  listItem: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 4,
+    marginLeft: 8,
   },
   analysisSection: {
     marginBottom: 20,
