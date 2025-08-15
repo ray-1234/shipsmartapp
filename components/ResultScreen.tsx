@@ -1,4 +1,4 @@
-// components/ResultScreen.tsx
+// components/ResultScreen.tsx - 完全修復版
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -9,7 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { ShippingResult } from '../types/shipping';
-import QRCodeComponent from './QRCodeComponent';
+import AIAnalysisScreen from './AIAnalysisScreen';
 
 interface ResultScreenProps {
   result: ShippingResult;
@@ -18,26 +18,26 @@ interface ResultScreenProps {
 }
 
 export default function ResultScreen({ result, onBackToInput, productInfo }: ResultScreenProps) {
-  const [showQRCode, setShowQRCode] = useState(false);
+  const [showAIAnalysis, setShowAIAnalysis] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
 
-  const handleCreateQR = (option: any) => {
+  const handleAIAnalysis = (option: any) => {
     setSelectedOption(option);
-    setShowQRCode(true);
+    setShowAIAnalysis(true);
   };
 
-  const handleCloseQR = () => {
-    setShowQRCode(false);
+  const handleCloseAI = () => {
+    setShowAIAnalysis(false);
     setSelectedOption(null);
   };
 
-  // QRコード画面表示
-  if (showQRCode && selectedOption) {
+  // AI分析画面表示
+  if (showAIAnalysis && selectedOption) {
     return (
-      <QRCodeComponent
+      <AIAnalysisScreen
         productInfo={productInfo}
-        selectedOption={selectedOption}
-        onClose={handleCloseQR}
+        shippingOptions={result.options}
+        onClose={handleCloseAI}
       />
     );
   }
@@ -46,8 +46,8 @@ export default function ResultScreen({ result, onBackToInput, productInfo }: Res
     <SafeAreaView style={styles.container}>
       {/* ヘッダー */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackToInput}>
-          <Text style={styles.backButtonText}>← 戻る</Text>
+        <TouchableOpacity style={styles.closeButton} onPress={onBackToInput}>
+          <Text style={styles.closeButtonText}>← 戻る</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>おすすめの発送方法</Text>
@@ -87,19 +87,22 @@ export default function ResultScreen({ result, onBackToInput, productInfo }: Res
               ))}
             </View>
 
-            {/* QRコード生成ボタン */}
+            {/* AI分析ボタン */}
             <TouchableOpacity 
-              style={styles.qrButton} 
-              onPress={() => handleCreateQR(option)}
+              style={styles.aiButton} 
+              onPress={() => handleAIAnalysis(option)}
             >
-              <Text style={styles.qrButtonText}>📱 QRコード生成</Text>
+              <Text style={styles.aiButtonText}>🤖 AI分析</Text>
             </TouchableOpacity>
           </View>
         ))}
 
         {/* アクションボタン */}
-        <TouchableOpacity style={styles.ctaButton} onPress={() => handleCreateQR(result.options[0])}>
-          <Text style={styles.ctaButtonText}>🥇 最安方法でQR作成</Text>
+        <TouchableOpacity 
+          style={styles.ctaButton} 
+          onPress={() => handleAIAnalysis(result.options[0])}
+        >
+          <Text style={styles.ctaButtonText}>🥇 最安方法でAI分析</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.secondaryButton} onPress={onBackToInput}>
@@ -118,16 +121,16 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#1E88E5',
     paddingTop: 20,
-    paddingBottom: 30,
+    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backButton: {
+  closeButton: {
     padding: 8,
     marginRight: 10,
   },
-  backButtonText: {
+  closeButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '500',
@@ -209,6 +212,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 12,
   },
   featureTag: {
     backgroundColor: '#e3f2fd',
@@ -218,17 +222,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     fontSize: 10,
     fontWeight: '500',
-    marginBottom: 4,
   },
-  qrButton: {
-    backgroundColor: '#10b981',
+  aiButton: {
+    backgroundColor: '#8B5CF6',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
     alignItems: 'center',
     marginTop: 8,
   },
-  qrButtonText: {
+  aiButtonText: {
     color: 'white',
     fontSize: 12,
     fontWeight: '600',

@@ -1,5 +1,5 @@
-// components/AIAnalysisScreen.tsx
-import React, { useState } from 'react';
+// components/AIAnalysisScreen.tsx - ローディング・ポーリング対応版
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Animated,
 } from 'react-native';
 import { ProductInfo, ShippingOption } from '../types/shipping';
 import { runAIAnalysis, AIAnalysisResult, AnalysisType } from '../utils/aiAnalysisService';
@@ -20,6 +21,7 @@ interface AIAnalysisScreenProps {
 }
 
 type ActiveTab = 'summary' | 'profit' | 'risk' | 'packaging' | 'market';
+type AnalysisState = 'idle' | 'analyzing' | 'completed' | 'error';
 
 export default function AIAnalysisScreen({ 
   productInfo, 
@@ -27,12 +29,59 @@ export default function AIAnalysisScreen({
   onClose 
 }: AIAnalysisScreenProps) {
   const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
   const [activeTab, setActiveTab] = useState<ActiveTab>('summary');
-  const [hasRunAnalysis, setHasRunAnalysis] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [animatedValue] = useState(new Animated.Value(0));
+
+  // 分析開始時のローディングアニメーション
+  const startLoadingAnimation = () => {
+    animatedValue.setValue(0);
+    Animated.loop(
+      Animated.timing(animatedValue, {
+        toValue: 1,
+        duration: 1500,
+        useNativeDriver: true,
+      })
+    ).start();
+  };
+
+  // 段階的なローディングメッセージ
+  const updateProgressMessages = () => {
+    const messages = [
+      '🤖 AI分析を開始しています...',
+      '📊 商品データを解析中...',
+      '💰 利益最適化を計算中...',
+      '⚠️ リスク要因を評価中...',
+      '📦 最適な梱包方法を検討中...',
+      '📈 市場動向を分析中...',
+      '✨ 分析結果をまとめています...',
+    ];
+
+    let currentIndex = 0;
+    const interval = setInterval(() => {
+      if (currentIndex < messages.length && analysisState === 'analyzing') {
+        setStatusMessage(messages[currentIndex]);
+        setProgress(((currentIndex + 1) / messages.length) * 100);
+        currentIndex++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 2000);
+
+    return interval;
+  };
 
   const handleRunAnalysis = async (analysisType: AnalysisType = 'comprehensive') => {
-    setIsAnalyzing(true);
+    setAnalysisState('analyzing');
+    setProgress(0);
+    setStatusMessage('🤖 AI分析を開始しています...');
+    startLoadingAnimation();
+
+    // プログレスメッセージの更新開始
+    const progressInterval = updateProgressMessages();
+
     try {
       const result = await runAIAnalysis({
         productInfo,
@@ -43,14 +92,32 @@ export default function AIAnalysisScreen({
         }
       }, analysisType);
       
-      setAnalysisResult(result);
-      setHasRunAnalysis(true);
-      setActiveTab('summary');
+      // 分析完了時の処理
+      clearInterval(progressInterval);
+      setProgress(100);
+      setStatusMessage('✅ 分析完了！');
+      
+      // 少し遅延してから結果を表示
+      setTimeout(() => {
+        setAnalysisResult(result);
+        setAnalysisState('completed');
+        setActiveTab('summary');
+      }, 1000);
+
     } catch (error) {
-      Alert.alert('エラー', 'AI分析に失敗しました。しばらく待ってから再試行してください。');
+      clearInterval(progressInterval);
       console.error('AI分析エラー:', error);
-    } finally {
-      setIsAnalyzing(false);
+      setAnalysisState('error');
+      setStatusMessage('❌ 分析に失敗しました');
+      
+      Alert.alert(
+        'AI分析エラー', 
+        '分析に失敗しました。ネットワーク接続を確認して再試行してください。',
+        [
+          { text: 'キャンセル', onPress: () => setAnalysisState('idle') },
+          { text: '再試行', onPress: () => handleRunAnalysis(analysisType) }
+        ]
+      );
     }
   };
 
@@ -59,7 +126,7 @@ export default function AIAnalysisScreen({
       key={tabId}
       style={[styles.tabButton, activeTab === tabId && styles.activeTabButton]}
       onPress={() => setActiveTab(tabId)}
-      disabled={!hasRunAnalysis}
+      disabled={analysisState !== 'completed'}
     >
       <Text style={[styles.tabText, activeTab === tabId && styles.activeTabText]}>
         {icon} {title}
@@ -67,9 +134,90 @@ export default function AIAnalysisScreen({
     </TouchableOpacity>
   );
 
+  // ローディング画面
+  const renderLoadingScreen = () => (
+    <View style={styles.loadingContainer}>
+      <Animated.View
+        style={[
+          styles.loadingIcon,
+          {
+            transform: [
+              {
+                rotate: animatedValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', '360deg'],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <Text style={styles.loadingEmoji}>🤖</Text>
+      </Animated.View>
+
+      <Text style={styles.loadingTitle}>AI分析中</Text>
+      <Text style={styles.loadingMessage}>{statusMessage}</Text>
+
+      {/* プログレスバー */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: `${progress}%` }]} />
+        </View>
+        <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+      </View>
+
+      {/* 分析中のヒント */}
+      <View style={styles.hintsContainer}>
+        <Text style={styles.hintsTitle}>💡 分析中にできること</Text>
+        <Text style={styles.hintText}>• 商品の写真を追加で撮影</Text>
+        <Text style={styles.hintText}>• 配送先住所の再確認</Text>
+        <Text style={styles.hintText}>• 梱包材の準備</Text>
+      </View>
+
+      {/* キャンセルボタン */}
+      <TouchableOpacity 
+        style={styles.cancelButton} 
+        onPress={() => {
+          setAnalysisState('idle');
+          onClose();
+        }}
+      >
+        <Text style={styles.cancelButtonText}>キャンセル</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // エラー画面
+  const renderErrorScreen = () => (
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorEmoji}>😞</Text>
+      <Text style={styles.errorTitle}>分析に失敗しました</Text>
+      <Text style={styles.errorMessage}>
+        AI分析中にエラーが発生しました。{'\n'}
+        ネットワーク接続を確認して再試行してください。
+      </Text>
+      
+      <TouchableOpacity 
+        style={styles.retryButton} 
+        onPress={() => handleRunAnalysis('comprehensive')}
+      >
+        <Text style={styles.retryButtonText}>🔄 再試行</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={onClose}
+      >
+        <Text style={styles.backButtonText}>戻る</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // サマリー表示（簡略版）
   const renderSummaryView = () => (
     <View style={styles.analysisSection}>
-      <Text style={styles.sectionTitle}>🤖 AI分析サマリー</Text>
+      <Text style={styles.sectionTitle}>🤖 AI分析結果</Text>
+      
       <View style={styles.summaryCard}>
         <Text style={styles.summaryText}>{analysisResult?.summary}</Text>
         <View style={styles.confidenceContainer}>
@@ -100,249 +248,65 @@ export default function AIAnalysisScreen({
           <Text style={styles.metricLabel}>梱包提案</Text>
         </View>
       </View>
-    </View>
-  );
 
-  const renderProfitView = () => (
-    <View style={styles.analysisSection}>
-      <Text style={styles.sectionTitle}>💰 利益最大化分析</Text>
-      
-      <View style={styles.profitComparison}>
-        <View style={styles.profitCard}>
-          <Text style={styles.profitLabel}>現在の予想利益</Text>
-          <Text style={styles.profitValue}>¥{analysisResult?.profitAnalysis.currentProfit}</Text>
-        </View>
-        <View style={styles.arrowContainer}>
-          <Text style={styles.arrow}>→</Text>
-        </View>
-        <View style={[styles.profitCard, styles.optimizedCard]}>
-          <Text style={styles.profitLabel}>最適化後利益</Text>
-          <Text style={styles.optimizedValue}>¥{analysisResult?.profitAnalysis.optimizedProfit}</Text>
-        </View>
-      </View>
-
-      <View style={styles.improvementSection}>
-        <Text style={styles.subsectionTitle}>💡 改善提案</Text>
-        {analysisResult?.profitAnalysis.improvements.map((improvement, index) => (
-          <View key={index} style={styles.improvementItem}>
-            <Text style={styles.improvementText}>• {improvement}</Text>
+      {/* 主要なアドバイス */}
+      <View style={styles.keyAdviceSection}>
+        <Text style={styles.keyAdviceTitle}>🎯 主要なアドバイス</Text>
+        {analysisResult?.profitAnalysis.improvements.slice(0, 3).map((improvement, index) => (
+          <View key={index} style={styles.adviceItem}>
+            <Text style={styles.adviceText}>• {improvement}</Text>
           </View>
         ))}
-      </View>
-
-      <View style={styles.recommendationSection}>
-        <Text style={styles.subsectionTitle}>🎯 価格戦略</Text>
-        <Text style={styles.recommendationText}>
-          {analysisResult?.profitAnalysis.priceRecommendation}
-        </Text>
-      </View>
-    </View>
-  );
-
-  const renderRiskView = () => (
-    <View style={styles.analysisSection}>
-      <Text style={styles.sectionTitle}>⚠️ 配送リスク分析</Text>
-      
-      <View style={styles.riskOverview}>
-        <View style={styles.riskScoreCard}>
-          <Text style={styles.riskScoreValue}>
-            {analysisResult?.riskAssessment.overallRisk}/10
-          </Text>
-          <Text style={styles.riskScoreLabel}>総合リスクスコア</Text>
-          <Text style={styles.riskLevel}>
-            {(analysisResult?.riskAssessment.overallRisk || 0) <= 3 ? '低リスク' :
-             (analysisResult?.riskAssessment.overallRisk || 0) <= 6 ? '中リスク' : '高リスク'}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.riskDetails}>
-        <View style={styles.riskItem}>
-          <Text style={styles.riskItemTitle}>💥 破損リスク</Text>
-          <Text style={styles.riskItemValue}>{analysisResult?.riskAssessment.damageRisk}/10</Text>
-        </View>
-        <View style={styles.riskItem}>
-          <Text style={styles.riskItemTitle}>⏰ 遅延リスク</Text>
-          <Text style={styles.riskItemValue}>{analysisResult?.riskAssessment.delayRisk}/10</Text>
-        </View>
-        <View style={styles.riskItem}>
-          <Text style={styles.riskItemTitle}>🔍 紛失リスク</Text>
-          <Text style={styles.riskItemValue}>{analysisResult?.riskAssessment.lossRisk}/10</Text>
-        </View>
-      </View>
-
-      <View style={styles.preventionSection}>
-        <Text style={styles.subsectionTitle}>🛡️ 予防策</Text>
-        {analysisResult?.riskAssessment.preventionTips.map((tip, index) => (
-          <View key={index} style={styles.preventionItem}>
-            <Text style={styles.preventionText}>• {tip}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderPackagingView = () => (
-    <View style={styles.analysisSection}>
-      <Text style={styles.sectionTitle}>📦 最適梱包提案</Text>
-      
-      <View style={styles.packagingSection}>
-        <Text style={styles.subsectionTitle}>🎯 推奨梱包材</Text>
-        {analysisResult?.packagingAdvice.recommendedMaterials.map((material, index) => (
-          <View key={index} style={styles.packagingItem}>
-            <Text style={styles.packagingText}>• {material}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.budgetSection}>
-        <Text style={styles.subsectionTitle}>💰 梱包材コスト</Text>
-        {analysisResult?.packagingAdvice.budgetBreakdown.map((item, index) => (
-          <View key={index} style={styles.budgetItem}>
-            <View style={styles.budgetInfo}>
-              <Text style={styles.budgetMaterial}>{item.material}</Text>
-              <Text style={styles.budgetDurability}>{item.durability}耐久性</Text>
-            </View>
-            <Text style={styles.budgetCost}>¥{item.cost}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.tipsSection}>
-        <Text style={styles.subsectionTitle}>💡 コスト削減のコツ</Text>
-        {analysisResult?.packagingAdvice.costEffectiveSolutions.map((tip, index) => (
-          <View key={index} style={styles.tipItem}>
-            <Text style={styles.tipText}>• {tip}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderMarketView = () => (
-    <View style={styles.analysisSection}>
-      <Text style={styles.sectionTitle}>📈 市場戦略分析</Text>
-      
-      <View style={styles.marketSection}>
-        <Text style={styles.subsectionTitle}>🎯 競合優位性</Text>
-        <Text style={styles.marketText}>
-          {analysisResult?.marketInsights.competitiveAdvantage}
-        </Text>
-      </View>
-
-      <View style={styles.marketSection}>
-        <Text style={styles.subsectionTitle}>💰 価格戦略</Text>
-        <Text style={styles.marketText}>
-          {analysisResult?.marketInsights.pricingStrategy}
-        </Text>
-      </View>
-
-      <View style={styles.marketSection}>
-        <Text style={styles.subsectionTitle}>⏰ タイミング戦略</Text>
-        <Text style={styles.marketText}>
-          {analysisResult?.marketInsights.timingAdvice}
-        </Text>
-      </View>
-
-      <View style={styles.marketSection}>
-        <Text style={styles.subsectionTitle}>📊 購買行動分析</Text>
-        <Text style={styles.marketText}>
-          {analysisResult?.marketInsights.buyerBehavior}
-        </Text>
-      </View>
-
-      <View style={styles.marketSection}>
-        <Text style={styles.subsectionTitle}>🔮 需要予測</Text>
-        <Text style={styles.marketText}>
-          {analysisResult?.marketInsights.demandForecast}
-        </Text>
       </View>
     </View>
   );
 
   const renderContent = () => {
-    if (!hasRunAnalysis) {
-      return (
-        <View style={styles.startContainer}>
-          <View style={styles.productSummary}>
-            <Text style={styles.productTitle}>📊 分析対象</Text>
-            <Text style={styles.productDetails}>
-              {productInfo.category} | {productInfo.length}×{productInfo.width}×{productInfo.thickness}cm | {productInfo.weight}g
-            </Text>
-            <Text style={styles.productDestination}>
-              配送先: {productInfo.destination}
-            </Text>
-          </View>
+    switch (analysisState) {
+      case 'analyzing':
+        return renderLoadingScreen();
+      case 'error':
+        return renderErrorScreen();
+      case 'completed':
+        return renderSummaryView();
+      default:
+        return (
+          <View style={styles.startContainer}>
+            <View style={styles.productSummary}>
+              <Text style={styles.productTitle}>📊 分析対象</Text>
+              <Text style={styles.productDetails}>
+                {productInfo.category} | {productInfo.length}×{productInfo.width}×{productInfo.thickness}cm | {productInfo.weight}g
+              </Text>
+              <Text style={styles.productDestination}>
+                配送先: {productInfo.destination}
+              </Text>
+            </View>
 
-          <View style={styles.analysisOptions}>
             <TouchableOpacity 
               style={styles.primaryAnalysisButton}
               onPress={() => handleRunAnalysis('comprehensive')}
-              disabled={isAnalyzing}
             >
-              {isAnalyzing ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Text style={styles.primaryButtonText}>🧠 AI総合分析開始</Text>
-                  <Text style={styles.primaryButtonSubtext}>利益・リスク・梱包・市場を一括分析</Text>
-                </>
-              )}
+              <Text style={styles.primaryButtonText}>🧠 AI総合分析開始</Text>
+              <Text style={styles.primaryButtonSubtext}>利益・リスク・梱包・市場を一括分析</Text>
             </TouchableOpacity>
 
-            <Text style={styles.orText}>または</Text>
-
-            <View style={styles.specificAnalysisButtons}>
-              <TouchableOpacity 
-                style={styles.specificButton}
-                onPress={() => handleRunAnalysis('profit')}
-                disabled={isAnalyzing}
-              >
-                <Text style={styles.specificButtonText}>💰 利益分析</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.specificButton}
-                onPress={() => handleRunAnalysis('risk')}
-                disabled={isAnalyzing}
-              >
-                <Text style={styles.specificButtonText}>⚠️ リスク分析</Text>
-              </TouchableOpacity>
+            <View style={styles.featureHighlights}>
+              <Text style={styles.highlightsTitle}>🎯 AI分析でわかること</Text>
+              <View style={styles.highlight}>
+                <Text style={styles.highlightText}>💰 隠れた利益改善ポイント</Text>
+              </View>
+              <View style={styles.highlight}>
+                <Text style={styles.highlightText}>⚠️ 配送リスクと予防策</Text>
+              </View>
+              <View style={styles.highlight}>
+                <Text style={styles.highlightText}>📦 最適な梱包材と節約術</Text>
+              </View>
+              <View style={styles.highlight}>
+                <Text style={styles.highlightText}>📈 売れる価格設定戦略</Text>
+              </View>
             </View>
           </View>
-
-          <View style={styles.featureHighlights}>
-            <Text style={styles.highlightsTitle}>🎯 AI分析でわかること</Text>
-            <View style={styles.highlight}>
-              <Text style={styles.highlightText}>💰 隠れた利益改善ポイント</Text>
-            </View>
-            <View style={styles.highlight}>
-              <Text style={styles.highlightText}>⚠️ 配送リスクと予防策</Text>
-            </View>
-            <View style={styles.highlight}>
-              <Text style={styles.highlightText}>📦 最適な梱包材と節約術</Text>
-            </View>
-            <View style={styles.highlight}>
-              <Text style={styles.highlightText}>📈 売れる価格設定戦略</Text>
-            </View>
-          </View>
-        </View>
-      );
-    }
-
-    switch (activeTab) {
-      case 'summary':
-        return renderSummaryView();
-      case 'profit':
-        return renderProfitView();
-      case 'risk':
-        return renderRiskView();
-      case 'packaging':
-        return renderPackagingView();
-      case 'market':
-        return renderMarketView();
-      default:
-        return renderSummaryView();
+        );
     }
   };
 
@@ -355,12 +319,14 @@ export default function AIAnalysisScreen({
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>🤖 AI配送分析</Text>
-          <Text style={styles.headerSubtitle}>フリマ利益最大化コンサルタント</Text>
+          <Text style={styles.headerSubtitle}>
+            {analysisState === 'analyzing' ? 'AI分析中...' : 'フリマ利益最大化コンサルタント'}
+          </Text>
         </View>
       </View>
 
-      {/* タブナビゲーション */}
-      {hasRunAnalysis && (
+      {/* タブナビゲーション（完了時のみ表示） */}
+      {analysisState === 'completed' && (
         <ScrollView 
           horizontal 
           style={styles.tabContainer}
@@ -378,21 +344,6 @@ export default function AIAnalysisScreen({
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {renderContent()}
       </ScrollView>
-
-      {/* 再分析ボタン */}
-      {hasRunAnalysis && (
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.reAnalysisButton}
-            onPress={() => handleRunAnalysis('comprehensive')}
-            disabled={isAnalyzing}
-          >
-            <Text style={styles.reAnalysisButtonText}>
-              {isAnalyzing ? '分析中...' : '🔄 再分析'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -464,6 +415,134 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
   },
+  // ローディング関連のスタイル
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  loadingIcon: {
+    marginBottom: 20,
+  },
+  loadingEmoji: {
+    fontSize: 48,
+    textAlign: 'center',
+  },
+  loadingTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 10,
+  },
+  loadingMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  progressContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  progressBar: {
+    width: '80%',
+    height: 8,
+    backgroundColor: '#e1e5e9',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#8B5CF6',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8B5CF6',
+  },
+  hintsContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    marginBottom: 20,
+  },
+  hintsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  hintText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  cancelButton: {
+    backgroundColor: '#6c757d',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // エラー関連のスタイル
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  errorEmoji: {
+    fontSize: 48,
+    marginBottom: 20,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#e74c3c',
+    marginBottom: 10,
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 24,
+  },
+  retryButton: {
+    backgroundColor: '#8B5CF6',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  backButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#8B5CF6',
+  },
+  backButtonText: {
+    color: '#8B5CF6',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // 初期画面のスタイル
   startContainer: {
     alignItems: 'center',
   },
@@ -492,17 +571,14 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-  analysisOptions: {
-    width: '100%',
-    marginBottom: 30,
-  },
   primaryAnalysisButton: {
     backgroundColor: '#8B5CF6',
     paddingVertical: 20,
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 30,
+    width: '100%',
   },
   primaryButtonText: {
     color: 'white',
@@ -514,32 +590,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     opacity: 0.9,
-  },
-  orText: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-  },
-  specificAnalysisButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  specificButton: {
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#8B5CF6',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 5,
-    alignItems: 'center',
-  },
-  specificButtonText: {
-    color: '#8B5CF6',
-    fontSize: 14,
-    fontWeight: '600',
   },
   featureHighlights: {
     backgroundColor: 'white',
@@ -563,6 +613,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#555',
   },
+  // 分析結果のスタイル（簡略版）
   analysisSection: {
     marginBottom: 20,
   },
@@ -617,223 +668,23 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-  profitComparison: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  profitCard: {
+  keyAdviceSection: {
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
-    flex: 1,
-    alignItems: 'center',
   },
-  optimizedCard: {
-    backgroundColor: '#f0fdf4',
-    borderWidth: 2,
-    borderColor: '#10b981',
-  },
-  profitLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  profitValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#333',
-  },
-  optimizedValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#10b981',
-  },
-  arrowContainer: {
-    paddingHorizontal: 16,
-  },
-  arrow: {
-    fontSize: 20,
-    color: '#8B5CF6',
-    fontWeight: 'bold',
-  },
-  improvementSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  subsectionTitle: {
+  keyAdviceTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 12,
   },
-  improvementItem: {
+  adviceItem: {
     marginBottom: 8,
   },
-  improvementText: {
+  adviceText: {
     fontSize: 14,
     color: '#555',
     lineHeight: 20,
-  },
-  recommendationSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-  },
-  recommendationText: {
-    fontSize: 14,
-    color: '#555',
-    lineHeight: 20,
-  },
-  riskOverview: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  riskScoreCard: {
-    alignItems: 'center',
-  },
-  riskScoreValue: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#ef4444',
-    marginBottom: 8,
-  },
-  riskScoreLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  riskLevel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#ef4444',
-  },
-  riskDetails: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  riskItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  riskItemTitle: {
-    fontSize: 14,
-    color: '#333',
-  },
-  riskItemValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ef4444',
-  },
-  preventionSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-  },
-  preventionItem: {
-    marginBottom: 8,
-  },
-  preventionText: {
-    fontSize: 14,
-    color: '#555',
-    lineHeight: 20,
-  },
-  packagingSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  packagingItem: {
-    marginBottom: 8,
-  },
-  packagingText: {
-    fontSize: 14,
-    color: '#555',
-    lineHeight: 20,
-  },
-  budgetSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  budgetItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  budgetInfo: {
-    flex: 1,
-  },
-  budgetMaterial: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  budgetDurability: {
-    fontSize: 12,
-    color: '#666',
-  },
-  budgetCost: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8B5CF6',
-  },
-  tipsSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-  },
-  tipItem: {
-    marginBottom: 8,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#555',
-    lineHeight: 20,
-  },
-  marketSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  marketText: {
-    fontSize: 14,
-    color: '#555',
-    lineHeight: 20,
-  },
-  footer: {
-    padding: 20,
-    backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#e1e5e9',
-  },
-  reAnalysisButton: {
-    backgroundColor: '#6c757d',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  reAnalysisButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
