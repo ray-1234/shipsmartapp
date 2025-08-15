@@ -258,39 +258,41 @@ function parseAnalysisResponse(responseText: string): Omit<AIAnalysisResult, 'an
   try {
     console.log('🔍 Raw response:', responseText.substring(0, 200) + '...');
     
-    // Markdown記法を除去
+    // Markdown記法を除去し、エスケープされた改行文字も処理
     const cleaned = responseText
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')
+      .replace(/\\n/g, '')  // エスケープされた改行文字を除去
+      .replace(/\n/g, '')   // 実際の改行文字を除去
       .trim();
     
     console.log('🧹 Cleaned response:', cleaned.substring(0, 200) + '...');
     
     const parsed = JSON.parse(cleaned);
-    console.log('✅ Parsed JSON:', Object.keys(parsed));
+    console.log('✅ Parsed JSON structure:', Object.keys(parsed));
 
-    // データ検証と補完
-    return {
+    // データ検証と補完（より厳密な型チェック）
+    const result = {
       summary: parsed.summary || 'AI分析が完了しました',
       confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.8,
       profitAnalysis: {
-        currentProfit: parsed.profitAnalysis?.currentProfit || 0,
-        optimizedProfit: parsed.profitAnalysis?.optimizedProfit || 0,
-        costSavings: parsed.profitAnalysis?.costSavings || 0,
-        improvements: parsed.profitAnalysis?.improvements || [],
+        currentProfit: Number(parsed.profitAnalysis?.currentProfit) || 0,
+        optimizedProfit: Number(parsed.profitAnalysis?.optimizedProfit) || 0,
+        costSavings: Number(parsed.profitAnalysis?.costSavings) || 0,
+        improvements: Array.isArray(parsed.profitAnalysis?.improvements) ? parsed.profitAnalysis.improvements : [],
         priceRecommendation: parsed.profitAnalysis?.priceRecommendation || ''
       },
       riskAssessment: {
-        overallRisk: parsed.riskAssessment?.overallRisk || 3,
-        damageRisk: parsed.riskAssessment?.damageRisk || 3,
-        delayRisk: parsed.riskAssessment?.delayRisk || 3,
-        lossRisk: parsed.riskAssessment?.lossRisk || 2,
-        preventionTips: parsed.riskAssessment?.preventionTips || []
+        overallRisk: Number(parsed.riskAssessment?.overallRisk) || 3,
+        damageRisk: Number(parsed.riskAssessment?.damageRisk) || 3,
+        delayRisk: Number(parsed.riskAssessment?.delayRisk) || 3,
+        lossRisk: Number(parsed.riskAssessment?.lossRisk) || 2,
+        preventionTips: Array.isArray(parsed.riskAssessment?.preventionTips) ? parsed.riskAssessment.preventionTips : []
       },
       packagingAdvice: {
-        recommendedMaterials: parsed.packagingAdvice?.recommendedMaterials || [],
-        costEffectiveSolutions: parsed.packagingAdvice?.costEffectiveSolutions || [],
-        budgetBreakdown: parsed.packagingAdvice?.budgetBreakdown || []
+        recommendedMaterials: Array.isArray(parsed.packagingAdvice?.recommendedMaterials) ? parsed.packagingAdvice.recommendedMaterials : [],
+        costEffectiveSolutions: Array.isArray(parsed.packagingAdvice?.costEffectiveSolutions) ? parsed.packagingAdvice.costEffectiveSolutions : [],
+        budgetBreakdown: Array.isArray(parsed.packagingAdvice?.budgetBreakdown) ? parsed.packagingAdvice.budgetBreakdown : []
       },
       marketInsights: {
         competitiveAdvantage: parsed.marketInsights?.competitiveAdvantage || '',
@@ -300,6 +302,16 @@ function parseAnalysisResponse(responseText: string): Omit<AIAnalysisResult, 'an
         demandForecast: parsed.marketInsights?.demandForecast || ''
       }
     };
+
+    console.log('✅ 解析完了 - 詳細データ:', {
+      summary: result.summary,
+      profitAnalysisKeys: Object.keys(result.profitAnalysis),
+      riskAssessmentKeys: Object.keys(result.riskAssessment),
+      packagingAdviceKeys: Object.keys(result.packagingAdvice),
+      marketInsightsKeys: Object.keys(result.marketInsights)
+    });
+
+    return result;
 
   } catch (parseError) {
     console.error('❌ JSON Parse Error:', parseError);
