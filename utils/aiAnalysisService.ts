@@ -1,8 +1,8 @@
 // utils/aiAnalysisService.ts - 緊急修正版
 import { ProductInfo, ShippingOption } from '../types/shipping';
 
-// Vercel本番環境の直接URL（必要に応じて変更）
-const VERCEL_API_URL = 'https://shipsmartapp.vercel.app/api/ai-analysis';
+// 常にVercel本番環境のURLを使用（開発・本番共通）
+const VERCEL_API_URL = 'https://shipsmartapp-iaqt.vercel.app/api/ai-analysis';
 
 export interface AIAnalysisRequest {
   productInfo: ProductInfo;
