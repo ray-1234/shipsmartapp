@@ -1,4 +1,4 @@
-// types/shipping.ts
+// types/shipping.ts - 更新版
 export interface ProductInfo {
   category: string;
   length: string;
@@ -6,6 +6,10 @@ export interface ProductInfo {
   thickness: string;
   weight: string;
   destination: string;
+  
+  // Phase 1 追加項目
+  salePrice?: string;        // 販売予定価格
+  senderLocation?: string;   // 発送元都道府県
 }
 
 export interface ShippingOption {

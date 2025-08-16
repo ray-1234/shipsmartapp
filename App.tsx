@@ -20,6 +20,8 @@ export default function App() {
     thickness: '2.8',
     weight: '450',
     destination: '大阪府',
+    salePrice: '2000',      // デフォルト販売価格
+    senderLocation: '東京都', // デフォルト発送元
   });
 
   const handleDiagnosis = () => {

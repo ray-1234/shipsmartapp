@@ -180,7 +180,9 @@ function generateComprehensivePrompt(request: AIAnalysisRequest, analysisType: A
 - カテゴリ: ${productInfo.category}
 - サイズ: ${productInfo.length}×${productInfo.width}×${productInfo.thickness}cm
 - 重量: ${productInfo.weight}g
+- 発送元: ${productInfo.senderLocation || '未設定'}
 - 配送先: ${productInfo.destination}
+- 販売予定価格: ${productInfo.salePrice ? `¥${productInfo.salePrice}` : '未設定'}
 `;
 
   const shippingOptionsText = shippingOptions.map((option, index) => 

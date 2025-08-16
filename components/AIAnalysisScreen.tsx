@@ -62,7 +62,13 @@ export default function AIAnalysisScreen({
     <TouchableOpacity
       key={tabId}
       style={[styles.tabButton, activeTab === tabId && styles.activeTabButton]}
-      onPress={() => setActiveTab(tabId)}
+      onPress={() => {
+        console.log(`🔥 タブクリック: ${tabId} (現在: ${activeTab})`);
+        console.log(`🔥 hasRunAnalysis: ${hasRunAnalysis}`);
+        console.log(`🔥 analysisResult存在: ${!!analysisResult}`);
+        setActiveTab(tabId);
+        console.log(`🔥 タブ変更完了: ${tabId}`);
+      }}
       disabled={!hasRunAnalysis}
     >
       <Text style={[styles.tabText, activeTab === tabId && styles.activeTabText]}>
@@ -111,10 +117,22 @@ export default function AIAnalysisScreen({
 
   // タブ別コンテンツ表示
   const renderTabContent = () => {
-    if (!analysisResult) return null;
+    console.log(`🎯 renderTabContent呼び出し: activeTab=${activeTab}, analysisResult存在=${!!analysisResult}`);
+    
+    if (!analysisResult) {
+      console.log(`❌ analysisResult がnull`);
+      return (
+        <View style={{padding: 20, backgroundColor: 'red'}}>
+          <Text style={{color: 'white', fontSize: 16}}>analysisResult が存在しません</Text>
+        </View>
+      );
+    }
+
+    console.log(`✅ タブコンテンツ描画: ${activeTab}`);
 
     switch (activeTab) {
       case 'summary':
+        console.log(`📊 サマリータブ描画開始`);
         return (
           <View style={styles.contentSection}>
             <Text style={styles.sectionTitle}>🤖 AI分析サマリー</Text>
@@ -140,6 +158,7 @@ export default function AIAnalysisScreen({
         );
 
       case 'profit':
+        console.log(`💰 利益タブ描画開始`);
         return (
           <View style={styles.contentSection}>
             <Text style={styles.sectionTitle}>💰 利益最大化分析</Text>
@@ -171,6 +190,7 @@ export default function AIAnalysisScreen({
         );
 
       case 'risk':
+        console.log(`⚠️ リスクタブ描画開始`);
         return (
           <View style={styles.contentSection}>
             <Text style={styles.sectionTitle}>⚠️ 配送リスク分析</Text>
@@ -209,6 +229,7 @@ export default function AIAnalysisScreen({
         );
 
       case 'packaging':
+        console.log(`📦 梱包タブ描画開始`);
         return (
           <View style={styles.contentSection}>
             <Text style={styles.sectionTitle}>📦 最適梱包提案</Text>
@@ -243,6 +264,7 @@ export default function AIAnalysisScreen({
         );
 
       case 'market':
+        console.log(`📈 市場タブ描画開始`);
         return (
           <View style={styles.contentSection}>
             <Text style={styles.sectionTitle}>📈 市場戦略分析</Text>
@@ -275,6 +297,7 @@ export default function AIAnalysisScreen({
         );
 
       default:
+        console.log(`❓ 未知のタブ: ${activeTab}`);
         return null;
     }
   };
@@ -288,22 +311,26 @@ export default function AIAnalysisScreen({
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>🤖 AI配送分析</Text>
-          <Text style={styles.headerSubtitle}>フリマ利益最大化コンサルタント</Text>
+          <Text style={styles.headerSubtitle}>
+            {isAnalyzing ? '分析中...' : hasRunAnalysis ? '分析完了' : '分析待機中'}
+          </Text>
         </View>
       </View>
 
-      {/* タブナビゲーション - 常に表示 */}
-      <ScrollView 
-        horizontal 
-        style={styles.tabContainer}
-        showsHorizontalScrollIndicator={false}
-      >
-        {renderTabButton('summary', 'サマリー', '📊')}
-        {renderTabButton('profit', '利益', '💰')}
-        {renderTabButton('risk', 'リスク', '⚠️')}
-        {renderTabButton('packaging', '梱包', '📦')}
-        {renderTabButton('market', '市場', '📈')}
-      </ScrollView>
+      {/* タブナビゲーション - 分析完了後のみ表示 */}
+      {hasRunAnalysis && (
+        <ScrollView 
+          horizontal 
+          style={styles.tabContainer}
+          showsHorizontalScrollIndicator={false}
+        >
+          {renderTabButton('summary', 'サマリー', '📊')}
+          {renderTabButton('profit', '利益', '💰')}
+          {renderTabButton('risk', 'リスク', '⚠️')}
+          {renderTabButton('packaging', '梱包', '📦')}
+          {renderTabButton('market', '市場', '📈')}
+        </ScrollView>
+      )}
 
       {/* メインコンテンツ */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -371,6 +398,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e5e9',
+    maxHeight: 60, // 最大高さを制限
+    minHeight: 50, // 最小高さを設定
   },
   tabButton: {
     paddingHorizontal: 16,
@@ -394,6 +423,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+    backgroundColor: '#f5f7fa', // 背景色を明示
   },
   startContainer: {
     alignItems: 'center',
