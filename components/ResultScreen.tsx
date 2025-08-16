@@ -1,4 +1,4 @@
-// components/ResultScreen.tsx - 完全修復版
+// components/ResultScreen.tsx - 修正版
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -8,14 +8,13 @@ import {
   ScrollView,
   SafeAreaView,
 } from 'react-native';
-import { ShippingResult } from '../types/shipping';
-import AIAnalysisScreen from './AIAnalysisScreen';
+import { ShippingResult, ProductInfo } from '../types/shipping'; // ProductInfoをインポート
 
 interface ResultScreenProps {
   result: ShippingResult;
   onBackToInput: () => void;
   productInfo: ProductInfo;
-  onShowAIAnalysis?: () => void; // オプショナルプロパティとして追加
+  onShowAIAnalysis?: () => void; // オプショナルプロパティ
 }
 
 export default function ResultScreen({ 
@@ -24,29 +23,12 @@ export default function ResultScreen({
   productInfo, 
   onShowAIAnalysis 
 }: ResultScreenProps) {
-  const [showAIAnalysis, setShowAIAnalysis] = useState(false);
-  const [selectedOption, setSelectedOption] = useState(null);
-
-  const handleAIAnalysis = (option: any) => {
-    setSelectedOption(option);
-    setShowAIAnalysis(true);
+  // AI分析ボタンのハンドラー - App.tsxのhandleShowAIAnalysisを呼び出す
+  const handleAIAnalysis = () => {
+    if (onShowAIAnalysis) {
+      onShowAIAnalysis();
+    }
   };
-
-  const handleCloseAI = () => {
-    setShowAIAnalysis(false);
-    setSelectedOption(null);
-  };
-
-  // AI分析画面表示
-  if (showAIAnalysis && selectedOption) {
-    return (
-      <AIAnalysisScreen
-        productInfo={productInfo}
-        shippingOptions={result.options}
-        onClose={handleCloseAI}
-      />
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -93,23 +75,27 @@ export default function ResultScreen({
               ))}
             </View>
 
-            {/* AI分析ボタン */}
-            <TouchableOpacity 
-              style={styles.aiButton} 
-              onPress={() => handleAIAnalysis(option)}
-            >
-              <Text style={styles.aiButtonText}>🤖 AI分析</Text>
-            </TouchableOpacity>
+            {/* AI分析ボタン - App.tsxの関数を呼び出す */}
+            {onShowAIAnalysis && (
+              <TouchableOpacity 
+                style={styles.aiButton} 
+                onPress={handleAIAnalysis}
+              >
+                <Text style={styles.aiButtonText}>🤖 AI分析</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ))}
 
-        {/* アクションボタン */}
-        <TouchableOpacity 
-          style={styles.ctaButton} 
-          onPress={() => handleAIAnalysis(result.options[0])}
-        >
-          <Text style={styles.ctaButtonText}>🥇 最安方法でAI分析</Text>
-        </TouchableOpacity>
+        {/* メインAI分析ボタン */}
+        {onShowAIAnalysis && (
+          <TouchableOpacity 
+            style={styles.ctaButton} 
+            onPress={handleAIAnalysis}
+          >
+            <Text style={styles.ctaButtonText}>🤖 AI総合分析を実行</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={styles.secondaryButton} onPress={onBackToInput}>
           <Text style={styles.secondaryButtonText}>条件を変更する</Text>
@@ -243,7 +229,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   ctaButton: {
-    backgroundColor: '#1E88E5',
+    backgroundColor: '#8B5CF6',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
