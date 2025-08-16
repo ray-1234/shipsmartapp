@@ -1,4 +1,4 @@
-// utils/realCalculator.ts
+// utils/realCalculator.ts - 修正版
 import { ProductInfo, ShippingResult, ShippingOption } from '../types/shipping';
 import { shippingServices, getRegionFromPrefecture, getDistanceCategory } from '../data/shippingDatabase';
 
@@ -8,14 +8,17 @@ export function calculateRealShipping(productInfo: ProductInfo): ShippingResult 
   const thickness = parseFloat(productInfo.thickness) || 0;
   const weight = parseFloat(productInfo.weight) || 0;
   
-  // 出発地（固定：東京都として設定）
-  const fromRegion = '関東';
+  // 発送元を動的に取得（デフォルトは東京都）
+  const senderLocation = productInfo.senderLocation || '東京都';
+  const fromRegion = getRegionFromPrefecture(senderLocation);
   const toRegion = getRegionFromPrefecture(productInfo.destination);
   const distanceCategory = getDistanceCategory(fromRegion, toRegion);
   
   console.log('計算パラメータ:', {
     サイズ: { length, width, thickness },
     重量: weight,
+    発送元: senderLocation,
+    配送先: productInfo.destination,
     距離: `${fromRegion} → ${toRegion} (${distanceCategory})`
   });
   
@@ -33,11 +36,9 @@ export function calculateRealShipping(productInfo: ProductInfo): ShippingResult 
     if (isWithinLimits) {
       const price = service.priceByRegion[distanceCategory];
       
-      // ランキング用の特別フラグ
+      // 特徴とアドバンテージを設定
       let features = [...service.features];
       let advantages = [...service.advantages];
-      
-      // 最安かどうかをチェック（後で実装）
       
       availableOptions.push({
         id: service.id,
@@ -56,7 +57,6 @@ export function calculateRealShipping(productInfo: ProductInfo): ShippingResult 
   // 上位3つに絞り、ランキングアイコンを追加
   const topOptions = availableOptions.slice(0, 3).map((option, index) => {
     const rankIcons = ['🥇', '🥈', '🥉'];
-    const rankNames = ['最安', '次善', '選択肢'];
     
     // 最安の場合は推奨マーク
     const isRecommended = index === 0;
@@ -81,10 +81,10 @@ export function calculateRealShipping(productInfo: ProductInfo): ShippingResult 
     };
   });
   
-  // 結果の組み立て
+  // 結果の組み立て - 発送元を動的に表示
   const result: ShippingResult = {
     summary: {
-      from: '東京都',
+      from: senderLocation,
       to: productInfo.destination,
       size: `${length}×${width}×${thickness}cm`,
       weight: `${weight}g`,
@@ -114,5 +114,29 @@ export function checkSizeCompatibility(productInfo: ProductInfo) {
     compatibleCount: compatibleServices.length,
     services: compatibleServices.map(s => s.displayName),
     hasOptions: compatibleServices.length > 0,
+  };
+}
+
+// 発送元と配送先の距離による料金影響を計算する関数
+export function calculateDistanceImpact(productInfo: ProductInfo) {
+  const senderLocation = productInfo.senderLocation || '東京都';
+  const fromRegion = getRegionFromPrefecture(senderLocation);
+  const toRegion = getRegionFromPrefecture(productInfo.destination);
+  const distanceCategory = getDistanceCategory(fromRegion, toRegion);
+  
+  // 各距離カテゴリでの料金例を取得
+  const sampleService = shippingServices[0]; // ゆうパケットポストで例示
+  const prices = {
+    same: sampleService.priceByRegion.same,
+    neighbor: sampleService.priceByRegion.neighbor,
+    distant: sampleService.priceByRegion.distant
+  };
+  
+  return {
+    currentCategory: distanceCategory,
+    currentPrice: prices[distanceCategory],
+    priceRange: prices,
+    distanceInfo: `${fromRegion} → ${toRegion}`,
+    savings: distanceCategory === 'same' ? prices.distant - prices.same : 0
   };
 }

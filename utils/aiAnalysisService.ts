@@ -206,18 +206,29 @@ ${shippingOptionsText}
 
 ${userPreferencesText}
 
+【利益計算の前提】
+- メルカリ手数料: 10%
+- ヤフオク手数料: 8.8%
+${productInfo.salePrice ? `- 販売予定価格: ¥${productInfo.salePrice}` : '- 販売価格: 仮想¥2000で計算'}
+
 必ず以下のJSON形式で回答してください：
 
 {
   "summary": "分析結果の要約（2-3文で具体的に）",
   "confidence": 0.85,
   "profitAnalysis": {
-    "currentProfit": 1200,
-    "optimizedProfit": 1450,
-    "costSavings": 250,
+    "currentProfit": ${productInfo.salePrice ? 
+      `${Math.round(parseFloat(productInfo.salePrice) * 0.9 - (shippingOptions[0]?.price || 200))}` : 
+      '1200'},
+    "optimizedProfit": ${productInfo.salePrice ? 
+      `${Math.round(parseFloat(productInfo.salePrice) * 0.9 - Math.min(...shippingOptions.map(o => o.price)))}` : 
+      '1450'},
+    "costSavings": ${shippingOptions.length > 1 ? 
+      `${(shippingOptions[0]?.price || 200) - Math.min(...shippingOptions.map(o => o.price))}` : 
+      '250'},
     "improvements": [
       "具体的な改善提案1",
-      "具体的な改善提案2",
+      "具体的な改善提案2", 
       "具体的な改善提案3"
     ],
     "priceRecommendation": "最適な価格設定の提案"
@@ -258,7 +269,7 @@ ${userPreferencesText}
   }
 }
 
-フリマ初心者にも分かりやすく、具体的で実践的なアドバイスをお願いします。`;
+発送元（${productInfo.senderLocation}）から配送先（${productInfo.destination}）への距離も考慮して、フリマ初心者にも分かりやすく、具体的で実践的なアドバイスをお願いします。`;
 }
 
 function getAnalysisDescription(type: AnalysisType): string {
