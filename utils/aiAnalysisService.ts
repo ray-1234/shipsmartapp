@@ -184,7 +184,7 @@ function generateComprehensivePrompt(request: AIAnalysisRequest, analysisType: A
 `;
 
   const shippingOptionsText = shippingOptions.map((option, index) => 
-    `${index + 1}. ${option.name || option.service}: ¥${option.price} (${option.deliveryDays})`
+    `${index + 1}. ${option.name}: ¥${option.price} (${option.deliveryDays})`
   ).join('\n');
 
   const userPreferencesText = userPreferences ? `

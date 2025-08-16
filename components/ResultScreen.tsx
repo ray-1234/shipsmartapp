@@ -14,10 +14,16 @@ import AIAnalysisScreen from './AIAnalysisScreen';
 interface ResultScreenProps {
   result: ShippingResult;
   onBackToInput: () => void;
-  productInfo: any; // ProductInfo type
+  productInfo: ProductInfo;
+  onShowAIAnalysis?: () => void; // オプショナルプロパティとして追加
 }
 
-export default function ResultScreen({ result, onBackToInput, productInfo }: ResultScreenProps) {
+export default function ResultScreen({ 
+  result, 
+  onBackToInput, 
+  productInfo, 
+  onShowAIAnalysis 
+}: ResultScreenProps) {
   const [showAIAnalysis, setShowAIAnalysis] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
 

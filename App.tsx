@@ -12,7 +12,6 @@ type Screen = 'input' | 'result' | 'ai_analysis';
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('input');
   const [shippingResult, setShippingResult] = useState<ShippingResult | null>(null);
-  const [showAIAnalysis, setShowAIAnalysis] = useState(false);
   
   const [productInfo, setProductInfo] = useState<ProductInfo>({
     category: '衣類',
@@ -41,12 +40,10 @@ export default function App() {
   };
 
   const handleShowAIAnalysis = () => {
-    setShowAIAnalysis(true);
     setCurrentScreen('ai_analysis');
   };
 
   const handleCloseAI = () => {
-    setShowAIAnalysis(false);
     setCurrentScreen('result');
   };
 
@@ -73,7 +70,7 @@ export default function App() {
           result={shippingResult} 
           onBackToInput={handleBackToInput}
           productInfo={productInfo}
-          onShowAIAnalysis={handleShowAIAnalysis} // AI分析ボタン用
+          onShowAIAnalysis={handleShowAIAnalysis}
         />
       </>
     );
