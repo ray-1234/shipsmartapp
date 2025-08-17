@@ -1,43 +1,28 @@
-// App.tsx - TypeScriptエラー修正版
-import React, { useEffect, useState } from 'react';
-import { Platform, View, StyleSheet } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-
-// コンポーネントimport
+// App.tsx - 完全修正版
+import React, { useState } from 'react';
+import { StatusBar } from 'react-native';
 import EnhancedInputScreen from './components/EnhancedInputScreen';
 import ResultScreen from './components/ResultScreen';
 import AIAnalysisScreen from './components/AIAnalysisScreen';
-
-import { ProductInfo, ShippingResult } from './types/shipping';
 import { calculateRealShipping } from './utils/realCalculator';
+import { ProductInfo, ShippingResult } from './types/shipping';
+
+type Screen = 'input' | 'result' | 'analysis';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'input' | 'result' | 'analysis'>('input');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('input');
+  const [shippingResult, setShippingResult] = useState<ShippingResult | null>(null);
+  
   const [productInfo, setProductInfo] = useState<ProductInfo>({
-    category: '衣類',
+    category: '',
     length: '',
     width: '',
     thickness: '',
     weight: '',
     destination: '',
-    senderLocation: '東京都',
+    senderLocation: '',
     salePrice: '',
   });
-  const [shippingResult, setShippingResult] = useState<ShippingResult | null>(null);
-
-  // PWA初期化（Web環境のみ）
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      import('./utils/pwa').then(({ PWAManager }) => {
-        console.log('PWA: Initializing for web...');
-        PWAManager.init();
-      }).catch(() => {
-        console.log('PWA: Not available');
-      });
-    } else {
-      console.log('Native environment: PWA features disabled');
-    }
-  }, []);
 
   const handleDiagnosis = () => {
     const result = calculateRealShipping(productInfo);
@@ -45,58 +30,63 @@ export default function App() {
     setCurrentScreen('result');
   };
 
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case 'input':
-        return (
+  const handleBackToInput = () => {
+    setCurrentScreen('input');
+  };
+
+  const handleShowAIAnalysis = () => {
+    setCurrentScreen('analysis');
+  };
+
+  const handleCloseAIAnalysis = () => {
+    setCurrentScreen('result');
+  };
+
+  // 画面分岐
+  switch (currentScreen) {
+    case 'result':
+      if (!shippingResult) {
+        setCurrentScreen('input');
+        return null;
+      }
+      return (
+        <>
+          <StatusBar barStyle="light-content" backgroundColor="#1E88E5" />
+          <ResultScreen 
+            result={shippingResult} 
+            onBackToInput={handleBackToInput}
+            onAIAnalysis={handleShowAIAnalysis}
+            productInfo={productInfo}
+          />
+        </>
+      );
+
+    case 'analysis':
+      if (!shippingResult) {
+        setCurrentScreen('input');
+        return null;
+      }
+      return (
+        <>
+          <StatusBar barStyle="light-content" backgroundColor="#1E88E5" />
+          <AIAnalysisScreen
+            productInfo={productInfo}
+            shippingOptions={shippingResult.options}
+            onClose={handleCloseAIAnalysis}
+          />
+        </>
+      );
+
+    default:
+      return (
+        <>
+          <StatusBar barStyle="light-content" backgroundColor="#1E88E5" />
           <EnhancedInputScreen
             productInfo={productInfo}
             onProductInfoChange={setProductInfo}
             onDiagnosis={handleDiagnosis}
           />
-        );
-      case 'result':
-        // null チェックを追加
-        if (!shippingResult) {
-          setCurrentScreen('input');
-          return null;
-        }
-        return (
-          <ResultScreen
-            result={shippingResult}
-            onBack={() => setCurrentScreen('input')}
-            onAIAnalysis={() => setCurrentScreen('analysis')}
-          />
-        );
-      case 'analysis':
-        // null チェックを追加
-        if (!shippingResult) {
-          setCurrentScreen('input');
-          return null;
-        }
-        return (
-          <AIAnalysisScreen
-            productInfo={productInfo}
-            shippingOptions={shippingResult.options}
-            // onBack プロパティを削除（AIAnalysisScreenProps に存在しない）
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <View style={styles.container}>
-      <StatusBar style="auto" />
-      {renderScreen()}
-    </View>
-  );
+        </>
+      );
+  }
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f7fa',
-  },
-});

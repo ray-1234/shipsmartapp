@@ -13,6 +13,7 @@ import { ShippingResult, ProductInfo } from '../types/shipping'; // ProductInfo�
 interface ResultScreenProps {
   result: ShippingResult;
   onBackToInput: () => void;
+  onAIAnalysis: () => void;  // この行が必要
   productInfo: ProductInfo;
   onShowAIAnalysis?: () => void; // オプショナルプロパティ
 }

@@ -1,4 +1,4 @@
-// components/EnhancedInputScreen.tsx - Phase 1 対応版（UI改善のみ）
+// components/EnhancedInputScreen.tsx - カスタムドロップダウン版
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -9,8 +9,9 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { ProductInfo } from '../types/shipping';
 
 interface EnhancedInputScreenProps {
@@ -18,6 +19,98 @@ interface EnhancedInputScreenProps {
   onProductInfoChange: (productInfo: ProductInfo) => void;
   onDiagnosis: () => void;
 }
+
+// カスタムドロップダウンコンポーネント
+interface DropdownProps {
+  label: string;
+  value: string;
+  placeholder: string;
+  options: { label: string; value: string }[];
+  onValueChange: (value: string) => void;
+}
+
+const CustomDropdown: React.FC<DropdownProps> = ({
+  label,
+  value,
+  placeholder,
+  options,
+  onValueChange,
+}) => {
+  const [isVisible, setIsVisible] = useState(false);
+  
+  const selectedOption = options.find(option => option.value === value);
+  const displayText = selectedOption ? selectedOption.label : placeholder;
+
+  const handleSelect = (selectedValue: string) => {
+    onValueChange(selectedValue);
+    setIsVisible(false);
+  };
+
+  return (
+    <View style={styles.formGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <TouchableOpacity
+        style={styles.dropdownButton}
+        onPress={() => setIsVisible(true)}
+      >
+        <Text style={[styles.dropdownText, !selectedOption && styles.placeholderText]}>
+          {displayText}
+        </Text>
+        <Text style={styles.dropdownArrow}>▼</Text>
+      </TouchableOpacity>
+
+      <Modal
+        visible={isVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{label}</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setIsVisible(false)}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <FlatList
+              data={options}
+              keyExtractor={(item) => item.value}
+              style={styles.optionsList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.optionItem,
+                    item.value === value && styles.selectedOption
+                  ]}
+                  onPress={() => handleSelect(item.value)}
+                >
+                  <Text style={[
+                    styles.optionText,
+                    item.value === value && styles.selectedOptionText
+                  ]}>
+                    {item.label}
+                  </Text>
+                  {item.value === value && (
+                    <Text style={styles.checkmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+};
 
 export default function EnhancedInputScreen({ 
   productInfo, 
@@ -30,7 +123,6 @@ export default function EnhancedInputScreen({
   useEffect(() => {
     const errors: string[] = [];
     
-    // 必須項目チェック
     if (!productInfo.category) errors.push('カテゴリを選択してください');
     if (!productInfo.length || parseFloat(productInfo.length) <= 0) errors.push('長さを正しく入力してください');
     if (!productInfo.width || parseFloat(productInfo.width) <= 0) errors.push('幅を正しく入力してください'); 
@@ -39,7 +131,6 @@ export default function EnhancedInputScreen({
     if (!productInfo.destination) errors.push('配送先を選択してください');
     if (!productInfo.senderLocation) errors.push('発送元を選択してください');
     
-    // 販売価格チェック（オプショナルだがある場合は検証）
     if (productInfo.salePrice && parseFloat(productInfo.salePrice) <= 0) {
       errors.push('販売価格は0円より大きい値を入力してください');
     }
@@ -62,8 +153,19 @@ export default function EnhancedInputScreen({
     onDiagnosis();
   };
 
-  // 都道府県のオプション（再利用可能な配列）
-  const prefectures = [
+  // カテゴリオプション
+  const categoryOptions = [
+    { label: 'カテゴリを選択してください', value: '' },
+    { label: '衣類', value: '衣類' },
+    { label: '書籍', value: '書籍' },
+    { label: 'ゲーム', value: 'ゲーム' },
+    { label: '雑貨', value: '雑貨' },
+    { label: '家電', value: '家電' },
+    { label: '食品', value: '食品' },
+  ];
+
+  // 都道府県オプション
+  const prefectureOptions = [
     { label: '都道府県を選択', value: '' },
     { label: '北海道', value: '北海道' },
     { label: '青森県', value: '青森県' },
@@ -126,73 +228,49 @@ export default function EnhancedInputScreen({
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         
         {/* カテゴリ選択 */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>📦 カテゴリ</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={productInfo.category}
-              style={styles.picker}
-              onValueChange={(value) => updateField('category', value)}
-            >
-              <Picker.Item label="衣類" value="衣類" />
-              <Picker.Item label="書籍" value="書籍" />
-              <Picker.Item label="ゲーム" value="ゲーム" />
-              <Picker.Item label="雑貨" value="雑貨" />
-              <Picker.Item label="家電" value="家電" />
-              <Picker.Item label="食品" value="食品" />
-            </Picker>
-          </View>
-        </View>
+        <CustomDropdown
+          label="📦 カテゴリ"
+          value={productInfo.category}
+          placeholder="カテゴリを選択してください"
+          options={categoryOptions}
+          onValueChange={(value) => updateField('category', value)}
+        />
 
         {/* 発送元・配送先セクション */}
         <View style={styles.locationSection}>
           <Text style={styles.sectionTitle}>🗺️ 発送情報</Text>
-          
-          {/* 発送元 */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>📍 発送元</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={productInfo.senderLocation || ''}
-                style={styles.picker}
-                onValueChange={(value) => updateField('senderLocation', value)}
-              >
-                {prefectures.map((pref, index) => (
-                  <Picker.Item key={index} label={pref.label} value={pref.value} />
-                ))}
-              </Picker>
-            </View>
-          </View>
 
-          {/* 配送先 */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>🏠 配送先</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={productInfo.destination}
-                style={styles.picker}
-                onValueChange={(value) => updateField('destination', value)}
-              >
-                {prefectures.map((pref, index) => (
-                  <Picker.Item key={index} label={pref.label} value={pref.value} />
-                ))}
-              </Picker>
-            </View>
-            <Text style={styles.helperText}>
-              💡 距離によって配送料金が変わります
-            </Text>
-          </View>
+          {/* 発送元選択 */}
+          <CustomDropdown
+            label="📍 発送元"
+            value={productInfo.senderLocation || ''}
+            placeholder="都道府県を選択"
+            options={prefectureOptions}
+            onValueChange={(value) => updateField('senderLocation', value)}
+          />
+
+          {/* 配送先選択 */}
+          <CustomDropdown
+            label="🏠 配送先"
+            value={productInfo.destination}
+            placeholder="都道府県を選択"
+            options={prefectureOptions}
+            onValueChange={(value) => updateField('destination', value)}
+          />
+          
+          <Text style={styles.helperText}>
+            💡 距離によって配送料金が変わります
+          </Text>
         </View>
 
         {/* 商品情報セクション */}
         <View style={styles.productSection}>
           <Text style={styles.sectionTitle}>📏 商品情報</Text>
 
-          {/* サイズ入力 - UI改善版 */}
+          {/* サイズ入力 */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>📏 サイズ (cm)</Text>
             
-            {/* 長さ */}
             <View style={styles.sizeInputWithLabel}>
               <Text style={styles.sizeInputLabel}>長さ（縦）</Text>
               <TextInput
@@ -204,7 +282,6 @@ export default function EnhancedInputScreen({
               />
             </View>
             
-            {/* 幅 */}
             <View style={styles.sizeInputWithLabel}>
               <Text style={styles.sizeInputLabel}>幅（横）</Text>
               <TextInput
@@ -216,7 +293,6 @@ export default function EnhancedInputScreen({
               />
             </View>
             
-            {/* 厚み */}
             <View style={styles.sizeInputWithLabel}>
               <Text style={styles.sizeInputLabel}>厚み（高さ）</Text>
               <TextInput
@@ -337,7 +413,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   sectionTitle: {
-    fontSize: 18, // 16 → 18に拡大
+    fontSize: 18,
     fontWeight: '700',
     color: '#333',
     marginBottom: 16,
@@ -383,7 +459,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 16, // 14 → 16に拡大
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 8,
@@ -393,26 +469,112 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e1e5e9',
     borderRadius: 8,
-    paddingHorizontal: 16, // 12 → 16に拡大
-    paddingVertical: 16,   // 12 → 16に拡大
-    fontSize: 18,          // 16 → 18に拡大
-    minHeight: 56,         // 最小高さを追加
-  },
-  pickerContainer: {
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e1e5e9',
-    borderRadius: 8,
-    overflow: 'hidden',
-    minHeight: 56, // 最小高さを追加
-  },
-  picker: {
-    height: 56,    // 50 → 56に拡大
-    fontSize: 18,  // フォントサイズを明示的に指定
-    color: '#333', // テキスト色を明確に
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 18,
+    minHeight: 56,
   },
   
-  // サイズ入力の改善 - レスポンシブ対応
+  // カスタムドロップダウンのスタイル
+  dropdownButton: {
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#e1e5e9',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 56,
+  },
+  dropdownText: {
+    fontSize: 18,
+    color: '#333',
+    flex: 1,
+  },
+  placeholderText: {
+    color: '#999',
+  },
+  dropdownArrow: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+  },
+  
+  // モーダルのスタイル
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    width: '90%',
+    maxHeight: '70%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e5e9',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  optionsList: {
+    maxHeight: 400,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectedOption: {
+    backgroundColor: '#e3f2fd',
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  selectedOptionText: {
+    color: '#1E88E5',
+    fontWeight: '600',
+  },
+  checkmark: {
+    fontSize: 16,
+    color: '#1E88E5',
+    fontWeight: 'bold',
+  },
+  
   sizeInputWithLabel: {
     marginBottom: 12,
   },
@@ -433,28 +595,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     minHeight: 56,
   },
-  
   helperText: {
-    fontSize: 12, // 11 → 12に拡大
+    fontSize: 12,
     color: '#666',
     marginTop: 4,
     fontStyle: 'italic',
   },
   ctaButton: {
     backgroundColor: '#1E88E5',
-    paddingVertical: 18, // 16 → 18に拡大
+    paddingVertical: 18,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 20,
-    minHeight: 56,       // 最小高さを追加
+    minHeight: 56,
   },
   ctaButtonDisabled: {
     backgroundColor: '#bdc3c7',
   },
   ctaButtonText: {
     color: 'white',
-    fontSize: 18,        // 16 → 18に拡大
+    fontSize: 18,
     fontWeight: '600',
   },
   statusContainer: {
