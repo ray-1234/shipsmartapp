@@ -1,9 +1,8 @@
-// App.tsx - TypeScriptエラー修正版
-import React, { useEffect, useState } from 'react';
-import { Platform, View, StyleSheet } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+// MainApp.tsx（新規作成）
+import React, { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
 
-// コンポーネントimport
+// 既存のコンポーネントimport
 import EnhancedInputScreen from './components/EnhancedInputScreen';
 import ResultScreen from './components/ResultScreen';
 import AIAnalysisScreen from './components/AIAnalysisScreen';
@@ -11,7 +10,7 @@ import AIAnalysisScreen from './components/AIAnalysisScreen';
 import { ProductInfo, ShippingResult } from './types/shipping';
 import { calculateRealShipping } from './utils/realCalculator';
 
-export default function App() {
+export default function MainApp() {
   const [currentScreen, setCurrentScreen] = useState<'input' | 'result' | 'analysis'>('input');
   const [productInfo, setProductInfo] = useState<ProductInfo>({
     category: '衣類',
@@ -24,20 +23,6 @@ export default function App() {
     salePrice: '',
   });
   const [shippingResult, setShippingResult] = useState<ShippingResult | null>(null);
-
-  // PWA初期化（Web環境のみ）
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      import('./utils/pwa').then(({ PWAManager }) => {
-        console.log('PWA: Initializing for web...');
-        PWAManager.init();
-      }).catch(() => {
-        console.log('PWA: Not available');
-      });
-    } else {
-      console.log('Native environment: PWA features disabled');
-    }
-  }, []);
 
   const handleDiagnosis = () => {
     const result = calculateRealShipping(productInfo);
@@ -56,11 +41,6 @@ export default function App() {
           />
         );
       case 'result':
-        // null チェックを追加
-        if (!shippingResult) {
-          setCurrentScreen('input');
-          return null;
-        }
         return (
           <ResultScreen
             result={shippingResult}
@@ -69,16 +49,11 @@ export default function App() {
           />
         );
       case 'analysis':
-        // null チェックを追加
-        if (!shippingResult) {
-          setCurrentScreen('input');
-          return null;
-        }
         return (
           <AIAnalysisScreen
             productInfo={productInfo}
-            shippingOptions={shippingResult.options}
-            // onBack プロパティを削除（AIAnalysisScreenProps に存在しない）
+            shippingOptions={shippingResult?.options || []}
+            onBack={() => setCurrentScreen('result')}
           />
         );
       default:
@@ -88,7 +63,6 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="auto" />
       {renderScreen()}
     </View>
   );
@@ -97,6 +71,5 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
   },
 });

@@ -32,6 +32,12 @@
     },
     "assetBundlePatterns": [
       "**/*"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a1a107fa-6e9b-4a22-93aa-dd9d49bd70ac"
+      }
+    },
+    "owner": "rei_1234"
   }
 }
