@@ -1,6 +1,6 @@
-// utils/realCalculator.ts - 修正版
+// utils/realCalculator.ts - 実データ版
 import { ProductInfo, ShippingResult, ShippingOption } from '../types/shipping';
-import { shippingServices, getRegionFromPrefecture, getDistanceCategory } from '../data/shippingDatabase';
+import { calculateActualShippingCost } from '../data/realShippingDatabase';
 
 export function calculateRealShipping(productInfo: ProductInfo): ShippingResult {
   const length = parseFloat(productInfo.length) || 0;
@@ -10,59 +10,44 @@ export function calculateRealShipping(productInfo: ProductInfo): ShippingResult 
   
   // 発送元を動的に取得（デフォルトは東京都）
   const senderLocation = productInfo.senderLocation || '東京都';
-  const fromRegion = getRegionFromPrefecture(senderLocation);
-  const toRegion = getRegionFromPrefecture(productInfo.destination);
-  const distanceCategory = getDistanceCategory(fromRegion, toRegion);
   
-  console.log('計算パラメータ:', {
+  console.log('実データで計算中:', {
     サイズ: { length, width, thickness },
     重量: weight,
     発送元: senderLocation,
-    配送先: productInfo.destination,
-    距離: `${fromRegion} → ${toRegion} (${distanceCategory})`
+    配送先: productInfo.destination
   });
   
-  // 各配送サービスをチェック
-  const availableOptions: ShippingOption[] = [];
+  // 実際の料金データで計算
+  const actualResults = calculateActualShippingCost(
+    senderLocation,
+    productInfo.destination,
+    length,
+    width,
+    thickness,
+    weight
+  );
   
-  for (const service of shippingServices) {
-    // サイズ・重量制限チェック
-    const isWithinLimits = 
-      length <= service.sizeLimit.maxLength &&
-      width <= service.sizeLimit.maxWidth &&
-      thickness <= service.sizeLimit.maxThickness &&
-      weight <= service.sizeLimit.maxWeight;
-    
-    if (isWithinLimits) {
-      const price = service.priceByRegion[distanceCategory];
-      
-      // 特徴とアドバンテージを設定
-      let features = [...service.features];
-      let advantages = [...service.advantages];
-      
-      availableOptions.push({
-        id: service.id,
-        name: `${service.emoji} ${service.displayName}`,
-        price: price,
-        deliveryDays: service.deliveryDays,
-        features: features,
-        description: advantages.join('・'),
-      });
-    }
-  }
+  // ShippingOption形式に変換
+  const availableOptions: ShippingOption[] = actualResults.map((result, index) => {
+    const emojis = ['📮', '🐱', '📦', '📦', '📦'];
+    return {
+      id: result.service.toLowerCase().replace(/\s+/g, '-'),
+      name: `${emojis[index] || '📦'} ${result.service}`,
+      price: result.price,
+      deliveryDays: getDeliveryDays(result.service),
+      features: result.features,
+      description: result.features.join('・'),
+    };
+  });
   
-  // 料金でソート
-  availableOptions.sort((a, b) => a.price - b.price);
-  
-  // 上位3つに絞り、ランキングアイコンを追加
+  // 料金でソート済み
   const topOptions = availableOptions.slice(0, 3).map((option, index) => {
     const rankIcons = ['🥇', '🥈', '🥉'];
-    
-    // 最安の場合は推奨マーク
     const isRecommended = index === 0;
     
     // ランキングアイコンを名前に追加
-    const nameWithRank = `${rankIcons[index]} ${option.name.replace(/^[🎯📮🐱📦]\s/, '')}`;
+    const nameWithRank = `${rankIcons[index]} ${option.name.replace(/^[📮🐱📦]\s/, '')}`;
     
     // 特徴にランキングを追加
     let updatedFeatures = [...option.features];
@@ -81,7 +66,7 @@ export function calculateRealShipping(productInfo: ProductInfo): ShippingResult 
     };
   });
   
-  // 結果の組み立て - 発送元を動的に表示
+  // 結果の組み立て
   const result: ShippingResult = {
     summary: {
       from: senderLocation,
@@ -92,51 +77,49 @@ export function calculateRealShipping(productInfo: ProductInfo): ShippingResult 
     options: topOptions,
   };
   
-  console.log('計算結果:', result);
+  console.log('実データ計算結果:', result);
   return result;
 }
 
-// サイズ制限チェック用のヘルパー関数
-export function checkSizeCompatibility(productInfo: ProductInfo) {
-  const length = parseFloat(productInfo.length) || 0;
-  const width = parseFloat(productInfo.width) || 0;
-  const thickness = parseFloat(productInfo.thickness) || 0;
-  const weight = parseFloat(productInfo.weight) || 0;
+// サービス別の配達日数
+function getDeliveryDays(serviceName: string): string {
+  const deliveryMap: { [key: string]: string } = {
+    'ゆうパケットポスト': '1〜3日',
+    'ネコポス': '1〜2日',
+    'ゆうパケット': '1〜3日',
+    '宅急便コンパクト': '翌日〜2日',
+    '宅急便60': '翌日〜2日'
+  };
   
-  const compatibleServices = shippingServices.filter(service => 
-    length <= service.sizeLimit.maxLength &&
-    width <= service.sizeLimit.maxWidth &&
-    thickness <= service.sizeLimit.maxThickness &&
-    weight <= service.sizeLimit.maxWeight
+  return deliveryMap[serviceName] || '1〜3日';
+}
+
+// 距離による料金差の分析
+export function analyzeShippingDistance(productInfo: ProductInfo) {
+  const senderLocation = productInfo.senderLocation || '東京都';
+  const destination = productInfo.destination;
+  
+  // 同一都道府県での料金
+  const sameResults = calculateActualShippingCost(
+    senderLocation, senderLocation,
+    parseFloat(productInfo.length), parseFloat(productInfo.width),
+    parseFloat(productInfo.thickness), parseFloat(productInfo.weight)
+  );
+  
+  // 実際の配送先での料金
+  const actualResults = calculateActualShippingCost(
+    senderLocation, destination,
+    parseFloat(productInfo.length), parseFloat(productInfo.width),
+    parseFloat(productInfo.thickness), parseFloat(productInfo.weight)
   );
   
   return {
-    compatibleCount: compatibleServices.length,
-    services: compatibleServices.map(s => s.displayName),
-    hasOptions: compatibleServices.length > 0,
-  };
-}
-
-// 発送元と配送先の距離による料金影響を計算する関数
-export function calculateDistanceImpact(productInfo: ProductInfo) {
-  const senderLocation = productInfo.senderLocation || '東京都';
-  const fromRegion = getRegionFromPrefecture(senderLocation);
-  const toRegion = getRegionFromPrefecture(productInfo.destination);
-  const distanceCategory = getDistanceCategory(fromRegion, toRegion);
-  
-  // 各距離カテゴリでの料金例を取得
-  const sampleService = shippingServices[0]; // ゆうパケットポストで例示
-  const prices = {
-    same: sampleService.priceByRegion.same,
-    neighbor: sampleService.priceByRegion.neighbor,
-    distant: sampleService.priceByRegion.distant
-  };
-  
-  return {
-    currentCategory: distanceCategory,
-    currentPrice: prices[distanceCategory],
-    priceRange: prices,
-    distanceInfo: `${fromRegion} → ${toRegion}`,
-    savings: distanceCategory === 'same' ? prices.distant - prices.same : 0
+    distanceInfo: `${senderLocation} → ${destination}`,
+    priceComparison: actualResults.map((actual, index) => ({
+      service: actual.service,
+      actualPrice: actual.price,
+      sameRegionPrice: sameResults[index]?.price || actual.price,
+      difference: actual.price - (sameResults[index]?.price || actual.price)
+    }))
   };
 }

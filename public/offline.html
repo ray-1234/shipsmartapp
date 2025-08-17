@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オフライン - ShipSmart</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1E88E5 0%, #1565C0 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .offline-container {
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .offline-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+        
+        .offline-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .offline-message {
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        
+        .offline-features {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .offline-features h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        
+        .feature-list {
+            list-style: none;
+            text-align: left;
+        }
+        
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-list li::before {
+            content: "✓";
+            margin-right: 12px;
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .retry-section {
+            margin-top: 20px;
+        }
+        
+        .retry-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0 8px 8px 0;
+            display: inline-block;
+            text-decoration: none;
+        }
+        
+        .retry-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .retry-button:active {
+            transform: translateY(0);
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 20px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background: #f44336;
+        }
+        
+        .status-dot.online {
+            background: #4CAF50;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        .cached-data-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .cached-data-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .cached-data-title::before {
+            content: "💾";
+            margin-right: 8px;
+        }
+        
+        .cached-services {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 14px;
+        }
+        
+        .cached-service {
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        @media (max-width: 480px) {
+            .offline-icon {
+                font-size: 60px;
+            }
+            
+            .offline-title {
+                font-size: 24px;
+            }
+            
+            .offline-message {
+                font-size: 14px;
+            }
+            
+            .cached-services {
+                grid-template-columns: 1fr;
+            }
+            
+            .retry-button {
+                display: block;
+                width: 100%;
+                margin: 8px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="offline-icon pulse">📦</div>
+        
+        <h1 class="offline-title">オフラインモード</h1>
+        
+        <p class="offline-message">
+            インターネット接続が見つかりません。<br>
+            でも大丈夫！一部の機能はオフラインでも利用できます。
+        </p>
+        
+        <div class="offline-features">
+            <h3>利用可能な機能</h3>
+            <ul class="feature-list">
+                <li>基本的な発送料金計算</li>
+                <li>キャッシュされた配送業者情報</li>
+                <li>過去の診断履歴の閲覧</li>
+                <li>お気に入りの配送方法</li>
+                <li>梱包材計算ツール</li>
+            </ul>
+        </div>
+        
+        <div class="cached-data-section">
+            <div class="cached-data-title">キャッシュ済みデータ</div>
+            <div class="cached-services">
+                <div class="cached-service">ゆうパケット</div>
+                <div class="cached-service">ヤマト便</div>
+                <div class="cached-service">メルカリ便</div>
+                <div class="cached-service">佐川急便</div>
+            </div>
+        </div>
+        
+        <div class="retry-section">
+            <button class="retry-button" onclick="checkConnection()">
+                🔄 接続を再試行
+            </button>
+            <a href="/" class="retry-button">
+                🏠 ホームに戻る
+            </a>
+        </div>
+        
+        <div class="status-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">オフライン</span>
+        </div>
+    </div>
+
+    <script>
+        // 接続状態の監視
+        function updateConnectionStatus() {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            if (navigator.onLine) {
+                statusDot.classList.add('online');
+                statusText.textContent = 'オンライン';
+                
+                // オンラインに復帰したら自動的にリダイレクト
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+            } else {
+                statusDot.classList.remove('online');
+                statusText.textContent = 'オフライン';
+            }
+        }
+        
+        // 接続チェック
+        function checkConnection() {
+            updateConnectionStatus();
+            
+            if (navigator.onLine) {
+                // 実際にネットワーク接続をテスト
+                fetch('/', { method: 'HEAD', cache: 'no-cache' })
+                    .then(() => {
+                        window.location.href = '/';
+                    })
+                    .catch(() => {
+                        alert('接続は検出されましたが、サーバーに到達できません。しばらくしてから再試行してください。');
+                    });
+            } else {
+                alert('まだオフラインです。ネットワーク接続を確認してください。');
+            }
+        }
+        
+        // イベントリスナーの設定
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // 初期状態の設定
+        updateConnectionStatus();
+        
+        // 定期的な接続チェック（30秒ごと）
+        setInterval(updateConnectionStatus, 30000);
+        
+        // ページ読み込み時のアニメーション
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.style.opacity = '0';
+            document.body.style.transform = 'translateY(20px)';
+            document.body.style.transition = 'all 0.5s ease';
+            
+            setTimeout(() => {
+                document.body.style.opacity = '1';
+                document.body.style.transform = 'translateY(0)';
+            }, 100);
+        });
+    </script>
+</body>
+</html>

@@ -38,3 +38,112 @@ yarn-error.*
 
 .vercel
 .env.local
+
+# PWA関連の追加項目
+# ================================
+
+# Service Worker キャッシュ（開発時）
+public/sw-cache/
+public/workbox-*/
+
+# PWAビルド成果物
+public/static/
+public/asset-manifest.json
+public/precache-manifest*.js
+public/service-worker.js
+
+# PWAテスト用ファイル（一時的）
+pwa-test.ps1
+pwa-test.sh
+*.backup
+
+# PWAアイコン生成時の一時ファイル
+public/icons/*.tmp
+public/icons/temp*
+public/favicon.ico.backup
+
+# PWA manifest 生成時の一時ファイル
+public/manifest.json.backup
+public/manifest.*.json
+
+# WebpackのPWA関連出力
+webpack-pwa-manifest-*.json
+
+# Lighthouse監査レポート
+lighthouse-report*.html
+lighthouse-report*.json
+
+# PWA開発用ログ
+pwa-debug.log
+service-worker-debug.log
+
+# クラウドビルド関連
+# ================================
+
+# Capacitor（iOS対応時）
+capacitor.config.ts
+capacitor.config.json
+ios/
+android/
+
+# Cordova（もし使用する場合）
+plugins/
+platforms/
+
+# EAS Build
+eas.json
+.easignore
+
+# Vercel追加設定
+vercel.json
+.vercel/
+
+# その他のクラウドビルドサービス
+netlify.toml
+.netlify/
+
+# 開発・テスト関連
+# ================================
+
+# VS Code設定（プロジェクト固有）
+.vscode/settings.json
+.vscode/launch.json
+
+# JetBrains IDE
+.idea/
+
+# テスト結果
+coverage/
+test-results/
+*.lcov
+
+# パフォーマンステスト
+lighthouse/
+bundle-analyzer/
+
+# 一時的なスクリプト・ファイル
+temp/
+tmp/
+*.temp
+*.tmp
+
+# バックアップファイル
+*.bak
+*.backup
+*~
+
+# ログファイル
+*.log
+logs/
+
+# システム一時ファイル
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# エディタ一時ファイル
+*~
+.#*
+#*#
+.*.swp
+.*.swo
