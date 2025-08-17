@@ -1,4 +1,4 @@
-// components/EnhancedInputScreen.tsx - Phase 1 対応版
+// components/EnhancedInputScreen.tsx - Phase 1 対応版（UI改善のみ）
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -188,32 +188,46 @@ export default function EnhancedInputScreen({
         <View style={styles.productSection}>
           <Text style={styles.sectionTitle}>📏 商品情報</Text>
 
-          {/* サイズ入力 */}
+          {/* サイズ入力 - UI改善版 */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>📏 サイズ (cm)</Text>
-            <View style={styles.sizeInputsRow}>
+            
+            {/* 長さ */}
+            <View style={styles.sizeInputWithLabel}>
+              <Text style={styles.sizeInputLabel}>長さ（縦）</Text>
               <TextInput
-                style={[styles.input, styles.sizeInput]}
-                placeholder="長さ"
+                style={styles.sizeInput}
+                placeholder="例: 25"
                 value={productInfo.length}
                 onChangeText={(value) => updateField('length', value)}
                 keyboardType="numeric"
               />
+            </View>
+            
+            {/* 幅 */}
+            <View style={styles.sizeInputWithLabel}>
+              <Text style={styles.sizeInputLabel}>幅（横）</Text>
               <TextInput
-                style={[styles.input, styles.sizeInput]}
-                placeholder="幅"
+                style={styles.sizeInput}
+                placeholder="例: 18"
                 value={productInfo.width}
                 onChangeText={(value) => updateField('width', value)}
                 keyboardType="numeric"
               />
             </View>
-            <TextInput
-              style={[styles.input, styles.fullWidth]}
-              placeholder="厚み"
-              value={productInfo.thickness}
-              onChangeText={(value) => updateField('thickness', value)}
-              keyboardType="numeric"
-            />
+            
+            {/* 厚み */}
+            <View style={styles.sizeInputWithLabel}>
+              <Text style={styles.sizeInputLabel}>厚み（高さ）</Text>
+              <TextInput
+                style={styles.sizeInput}
+                placeholder="例: 2.8"
+                value={productInfo.thickness}
+                onChangeText={(value) => updateField('thickness', value)}
+                keyboardType="numeric"
+              />
+            </View>
+            
             <Text style={styles.helperText}>
               💡 厚み3cm以内だと安価な配送方法が利用できます
             </Text>
@@ -323,7 +337,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18, // 16 → 18に拡大
     fontWeight: '700',
     color: '#333',
     marginBottom: 16,
@@ -369,7 +383,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 14,
+    fontSize: 16, // 14 → 16に拡大
     fontWeight: '600',
     color: '#333',
     marginBottom: 8,
@@ -379,9 +393,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e1e5e9',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingHorizontal: 16, // 12 → 16に拡大
+    paddingVertical: 16,   // 12 → 16に拡大
+    fontSize: 18,          // 16 → 18に拡大
+    minHeight: 56,         // 最小高さを追加
   },
   pickerContainer: {
     backgroundColor: '#f8f9fa',
@@ -389,41 +404,57 @@ const styles = StyleSheet.create({
     borderColor: '#e1e5e9',
     borderRadius: 8,
     overflow: 'hidden',
+    minHeight: 56, // 最小高さを追加
   },
   picker: {
-    height: 50,
+    height: 56,    // 50 → 56に拡大
+    fontSize: 18,  // フォントサイズを明示的に指定
+    color: '#333', // テキスト色を明確に
   },
-  sizeInputsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
+  
+  // サイズ入力の改善 - レスポンシブ対応
+  sizeInputWithLabel: {
+    marginBottom: 12,
+  },
+  sizeInputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+    marginBottom: 6,
+    paddingLeft: 4,
   },
   sizeInput: {
-    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 18,
+    minHeight: 56,
   },
-  fullWidth: {
-    width: '100%',
-  },
+  
   helperText: {
-    fontSize: 11,
+    fontSize: 12, // 11 → 12に拡大
     color: '#666',
     marginTop: 4,
     fontStyle: 'italic',
   },
   ctaButton: {
     backgroundColor: '#1E88E5',
-    paddingVertical: 16,
+    paddingVertical: 18, // 16 → 18に拡大
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 20,
+    minHeight: 56,       // 最小高さを追加
   },
   ctaButtonDisabled: {
     backgroundColor: '#bdc3c7',
   },
   ctaButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,        // 16 → 18に拡大
     fontWeight: '600',
   },
   statusContainer: {
