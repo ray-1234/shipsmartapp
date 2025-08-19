@@ -58,6 +58,92 @@ export default function AIAnalysisScreen({
     }
   };
 
+const renderProfitAnalysis = () => (
+  <ScrollView style={styles.tabContent}>
+    {/* 販売価格・手数料の内訳表示 */}
+    <View style={styles.breakdownCard}>
+      <Text style={styles.cardTitle}>💰 収益内訳</Text>
+      
+      <View style={styles.breakdownRow}>
+        <Text style={styles.breakdownLabel}>販売価格</Text>
+        <Text style={styles.breakdownValue}>¥{analysisResult.profitAnalysis.breakdown.salePrice.toLocaleString()}</Text>
+      </View>
+      
+      <View style={styles.breakdownRow}>
+        <Text style={styles.breakdownLabel}>{analysisResult.profitAnalysis.breakdown.platformName}手数料 (10%)</Text>
+        <Text style={[styles.breakdownValue, styles.feeText]}>-¥{analysisResult.profitAnalysis.breakdown.platformFee.toLocaleString()}</Text>
+      </View>
+      
+      <View style={styles.divider} />
+      <View style={styles.breakdownRow}>
+        <Text style={styles.breakdownLabelBold}>手数料差引後</Text>
+        <Text style={styles.breakdownValueBold}>
+          ¥{(analysisResult.profitAnalysis.breakdown.salePrice - analysisResult.profitAnalysis.breakdown.platformFee).toLocaleString()}
+        </Text>
+      </View>
+    </View>
+
+    {/* 配送方法別利益比較表 */}
+    <View style={styles.comparisonCard}>
+      <Text style={styles.cardTitle}>🚚 配送方法別利益比較</Text>
+      
+      {analysisResult.profitAnalysis.breakdown.profitByShipping.map((shipping, index) => (
+        <View key={shipping.shippingName} style={[
+          styles.shippingRow,
+          index === 0 && styles.bestOption  // 最初（最安）をハイライト
+        ]}>
+          <View style={styles.shippingInfo}>
+            <Text style={styles.shippingName}>
+              {index === 0 && '🏆 '}
+              {shipping.shippingName}
+            </Text>
+            <Text style={styles.deliveryTime}>{shipping.deliveryDays}</Text>
+          </View>
+          
+          <View style={styles.shippingCosts}>
+            <Text style={styles.shippingCost}>送料: ¥{shipping.shippingCost.toLocaleString()}</Text>
+            <Text style={[
+              styles.profit,
+              shipping.profit > 0 ? styles.profitPositive : styles.profitNegative
+            ]}>
+              利益: ¥{shipping.profit.toLocaleString()}
+            </Text>
+            <Text style={styles.profitRate}>
+              利益率: {shipping.profitRate}%
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+
+    {/* 最適化提案 */}
+    <View style={styles.optimizationCard}>
+      <Text style={styles.cardTitle}>💡 利益最適化提案</Text>
+      
+      {analysisResult.profitAnalysis.costSavings > 0 && (
+        <View style={styles.savingsHighlight}>
+          <Text style={styles.savingsText}>
+            最安配送選択で¥{analysisResult.profitAnalysis.costSavings}節約可能
+          </Text>
+        </View>
+      )}
+      
+      {analysisResult.profitAnalysis.improvements.map((improvement, index) => (
+        <View key={index} style={styles.improvementItem}>
+          <Text style={styles.improvementBullet}>•</Text>
+          <Text style={styles.improvementText}>{improvement}</Text>
+        </View>
+      ))}
+      
+      <View style={styles.recommendationBox}>
+        <Text style={styles.recommendationText}>
+          {analysisResult.profitAnalysis.priceRecommendation}
+        </Text>
+      </View>
+    </View>
+  </ScrollView>
+);
+
   const renderTabButton = (tabId: ActiveTab, title: string, icon: string) => (
     <TouchableOpacity
       key={tabId}
@@ -159,35 +245,7 @@ export default function AIAnalysisScreen({
 
       case 'profit':
         console.log(`💰 利益タブ描画開始`);
-        return (
-          <View style={styles.contentSection}>
-            <Text style={styles.sectionTitle}>💰 利益最大化分析</Text>
-            
-            <View style={styles.profitComparison}>
-              <View style={styles.profitCard}>
-                <Text style={styles.profitLabel}>現在の予想利益</Text>
-                <Text style={styles.profitValue}>¥{analysisResult.profitAnalysis.currentProfit}</Text>
-              </View>
-              <Text style={styles.arrow}>→</Text>
-              <View style={[styles.profitCard, styles.optimizedCard]}>
-                <Text style={styles.profitLabel}>最適化後利益</Text>
-                <Text style={styles.optimizedValue}>¥{analysisResult.profitAnalysis.optimizedProfit}</Text>
-              </View>
-            </View>
-
-            <View style={styles.contentCard}>
-              <Text style={styles.cardTitle}>💡 改善提案</Text>
-              {analysisResult.profitAnalysis.improvements.map((improvement, index) => (
-                <Text key={index} style={styles.listItem}>• {improvement}</Text>
-              ))}
-            </View>
-
-            <View style={styles.contentCard}>
-              <Text style={styles.cardTitle}>🎯 価格戦略</Text>
-              <Text style={styles.contentText}>{analysisResult.profitAnalysis.priceRecommendation}</Text>
-            </View>
-          </View>
-        );
+        return renderProfitAnalysis(); // ここを変更
 
       case 'risk':
         console.log(`⚠️ リスクタブ描画開始`);
@@ -354,7 +412,7 @@ export default function AIAnalysisScreen({
     </SafeAreaView>
   );
 }
-
+// AIAnalysisScreen.tsxの最後のStyleSheet定義に追加
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -398,8 +456,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e5e9',
-    maxHeight: 60, // 最大高さを制限
-    minHeight: 50, // 最小高さを設定
+    maxHeight: 60,
+    minHeight: 50,
   },
   tabButton: {
     paddingHorizontal: 16,
@@ -423,7 +481,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
-    backgroundColor: '#f5f7fa', // 背景色を明示
+    backgroundColor: '#f5f7fa',
   },
   startContainer: {
     alignItems: 'center',
@@ -686,5 +744,161 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  // === ここから不足していたスタイル ===
+  tabContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  breakdownCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#28a745',
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  breakdownValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'right',
+  },
+  feeText: {
+    color: '#dc3545',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#dee2e6',
+    marginVertical: 8,
+  },
+  breakdownLabelBold: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '700',
+    flex: 1,
+  },
+  breakdownValueBold: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#28a745',
+    textAlign: 'right',
+  },
+  comparisonCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  shippingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  bestOption: {
+    backgroundColor: '#e7f3ff',
+    borderWidth: 2,
+    borderColor: '#0066cc',
+  },
+  shippingInfo: {
+    flex: 1,
+  },
+  shippingName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  deliveryTime: {
+    fontSize: 12,
+    color: '#666',
+  },
+  shippingCosts: {
+    alignItems: 'flex-end',
+  },
+  shippingCost: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  profit: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  profitPositive: {
+    color: '#28a745',
+  },
+  profitNegative: {
+    color: '#dc3545',
+  },
+  profitRate: {
+    fontSize: 12,
+    color: '#8B5CF6',
+    fontWeight: '500',
+  },
+  optimizationCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  savingsHighlight: {
+    backgroundColor: '#d4edda',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  savingsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#155724',
+    textAlign: 'center',
+  },
+  improvementItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  improvementBullet: {
+    fontSize: 14,
+    color: '#8B5CF6',
+    marginRight: 8,
+    fontWeight: '600',
+  },
+  improvementText: {
+    fontSize: 14,
+    color: '#555',
+    flex: 1,
+    lineHeight: 20,
+  },
+  recommendationBox: {
+    backgroundColor: '#f0f8ff',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+  },
+  recommendationText: {
+    fontSize: 14,
+    color: '#0066cc',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

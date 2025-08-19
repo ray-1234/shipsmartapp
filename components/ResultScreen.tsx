@@ -1,5 +1,5 @@
-// components/ResultScreen.tsx - 修正版
-import React, { useState } from 'react';
+// components/ResultScreen.tsx - AI分析ボタン修正版
+import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,28 +8,21 @@ import {
   ScrollView,
   SafeAreaView,
 } from 'react-native';
-import { ShippingResult, ProductInfo } from '../types/shipping'; // ProductInfoをインポート
+import { ShippingResult, ProductInfo } from '../types/shipping';
 
 interface ResultScreenProps {
   result: ShippingResult;
   onBackToInput: () => void;
-  onAIAnalysis: () => void;  // この行が必要
+  onAIAnalysis: () => void;  // ✅ App.tsxから渡されるprops名と一致
   productInfo: ProductInfo;
-  onShowAIAnalysis?: () => void; // オプショナルプロパティ
 }
 
 export default function ResultScreen({ 
   result, 
   onBackToInput, 
-  productInfo, 
-  onShowAIAnalysis 
+  onAIAnalysis,  // ✅ 正しいprops名を使用
+  productInfo
 }: ResultScreenProps) {
-  // AI分析ボタンのハンドラー - App.tsxのhandleShowAIAnalysisを呼び出す
-  const handleAIAnalysis = () => {
-    if (onShowAIAnalysis) {
-      onShowAIAnalysis();
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -62,7 +55,12 @@ export default function ResultScreen({
             ]}
           >
             <View style={styles.resultHeader}>
-              <Text style={styles.resultTitle}>{option.name}</Text>
+              <Text style={styles.resultTitle}>
+                {index === 0 && '🥇 '}
+                {index === 1 && '🥈 '}
+                {index === 2 && '🥉 '}
+                {option.name}
+              </Text>
               <Text style={styles.resultPrice}>¥{option.price.toLocaleString()}</Text>
             </View>
             
@@ -75,29 +73,21 @@ export default function ResultScreen({
                 </Text>
               ))}
             </View>
-
-            {/* AI分析ボタン - App.tsxの関数を呼び出す */}
-            {onShowAIAnalysis && (
-              <TouchableOpacity 
-                style={styles.aiButton} 
-                onPress={handleAIAnalysis}
-              >
-                <Text style={styles.aiButtonText}>🤖 AI分析</Text>
-              </TouchableOpacity>
-            )}
           </View>
         ))}
 
-        {/* メインAI分析ボタン */}
-        {onShowAIAnalysis && (
-          <TouchableOpacity 
-            style={styles.ctaButton} 
-            onPress={handleAIAnalysis}
-          >
-            <Text style={styles.ctaButtonText}>🤖 AI総合分析を実行</Text>
-          </TouchableOpacity>
-        )}
+        {/* 🎯 AI分析ボタン - メイン */}
+        <TouchableOpacity 
+          style={styles.aiAnalysisButton} 
+          onPress={onAIAnalysis}
+        >
+          <Text style={styles.aiAnalysisButtonText}>🤖 AI総合分析を実行</Text>
+          <Text style={styles.aiAnalysisButtonSubtext}>
+            利益最大化・リスク分析・梱包提案・市場戦略
+          </Text>
+        </TouchableOpacity>
 
+        {/* 条件変更ボタン */}
         <TouchableOpacity style={styles.secondaryButton} onPress={onBackToInput}>
           <Text style={styles.secondaryButtonText}>条件を変更する</Text>
         </TouchableOpacity>
@@ -163,7 +153,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -173,11 +163,12 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     borderLeftWidth: 4,
-    borderLeftColor: '#1E88E5',
+    borderLeftColor: '#e0e0e0',
   },
   recommendedCard: {
     borderLeftColor: '#4CAF50',
-    backgroundColor: '#f8fff9',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
   },
   resultHeader: {
     flexDirection: 'row',
@@ -193,67 +184,69 @@ const styles = StyleSheet.create({
   },
   resultPrice: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: '#1E88E5',
   },
   resultDetails: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   resultFeatures: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
+    gap: 6,
   },
   featureTag: {
     backgroundColor: '#e3f2fd',
-    color: '#1E88E5',
+    color: '#1976d2',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '500',
   },
-  aiButton: {
-    backgroundColor: '#8B5CF6',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  aiButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  ctaButton: {
-    backgroundColor: '#8B5CF6',
-    paddingVertical: 16,
+  // 🎯 AI分析ボタンのスタイル
+  aiAnalysisButton: {
+    backgroundColor: '#FF9800',
     borderRadius: 12,
-    alignItems: 'center',
+    padding: 16,
     marginTop: 20,
     marginBottom: 12,
+    alignItems: 'center',
+    shadowColor: '#FF9800',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  ctaButtonText: {
+  aiAnalysisButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  aiAnalysisButtonSubtext: {
+    color: 'white',
+    fontSize: 13,
+    opacity: 0.9,
+    textAlign: 'center',
   },
   secondaryButton: {
     backgroundColor: 'transparent',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
     borderColor: '#1E88E5',
-    marginBottom: 40,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 20,
   },
   secondaryButtonText: {
     color: '#1E88E5',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });

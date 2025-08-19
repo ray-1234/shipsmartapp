@@ -1,4 +1,4 @@
-// App.tsx - 完全修正版
+// App.tsx - Props名修正版
 import React, { useState } from 'react';
 import { StatusBar } from 'react-native';
 import EnhancedInputScreen from './components/EnhancedInputScreen';
@@ -35,10 +35,12 @@ export default function App() {
   };
 
   const handleShowAIAnalysis = () => {
+    console.log('🤖 AI分析画面へ移行');
     setCurrentScreen('analysis');
   };
 
   const handleCloseAIAnalysis = () => {
+    console.log('🔙 結果画面に戻る');
     setCurrentScreen('result');
   };
 
@@ -55,7 +57,7 @@ export default function App() {
           <ResultScreen 
             result={shippingResult} 
             onBackToInput={handleBackToInput}
-            onAIAnalysis={handleShowAIAnalysis}
+            onAIAnalysis={handleShowAIAnalysis}  // ✅ 正しいprops名
             productInfo={productInfo}
           />
         </>

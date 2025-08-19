@@ -23,7 +23,8 @@
     "react-native": "0.79.5",
     "react-native-qrcode-svg": "^6.3.15",
     "react-native-svg": "15.11.2",
-    "react-native-web": "^0.20.0"
+    "react-native-web": "^0.20.0",
+    "expo-dev-client": "~5.2.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
