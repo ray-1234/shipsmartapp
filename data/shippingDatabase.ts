@@ -135,8 +135,9 @@ export function calculateActualShippingCost(
   length: number, 
   width: number, 
   thickness: number, 
-  weight: number
-): Array<{service: string, price: number, features: string[], provider: string}> {
+  weight: number,
+  isDropOff: boolean = false // 持ち込み配送の選択
+): Array<{service: string, price: number, features: string[], provider: string, hasPickupDiscount?: boolean}> {
   
   const fromRegion = prefectureToRegion[fromPrefecture];
   const toRegion = prefectureToRegion[toPrefecture];
@@ -193,7 +194,7 @@ export function calculateActualShippingCost(
   
   // 【中型配送サービス】宅急便コンパクト・60サイズ
   if (sizeCategory === 'compact' && fromRegion && toRegion) {
-    // メルカリ便（宅急便コンパクト）
+    // メルカリ便（宅急便コンパクト）- 持ち込み割引なし
     results.push({
       service: 'メルカリ便（宅急便コンパクト）',
       price: mercariCompactRates[fromRegion][toRegion],
@@ -203,25 +204,29 @@ export function calculateActualShippingCost(
     
     // ヤマト運輸（宅急便コンパクト）
     const yamtoCompactPrice = takkyubinCompactRates[fromRegion][toRegion];
-    const yamtoCompactWithDiscount = yamtoCompactPrice - 110; // 持込割引適用
     
-    results.push({
-      service: 'ヤマト宅急便コンパクト（持込）',
-      price: yamtoCompactWithDiscount,
-      features: ['専用BOX', '手渡し', '追跡あり', '持込割引-110円', '損害賠償'],
-      provider: 'ヤマト運輸'
-    });
-    
-    results.push({
-      service: 'ヤマト宅急便コンパクト（集荷）',
-      price: yamtoCompactPrice,
-      features: ['専用BOX', '手渡し', '追跡あり', '自宅集荷', '損害賠償'],
-      provider: 'ヤマト運輸'
-    });
+    if (isDropOff) {
+      // 持ち込み選択時は割引価格のみ表示
+      results.push({
+        service: 'ヤマト宅急便コンパクト（持込）',
+        price: yamtoCompactPrice - 110,
+        features: ['専用BOX', '手渡し', '追跡あり', '持込割引-110円', '損害賠償'],
+        provider: 'ヤマト運輸',
+        hasPickupDiscount: true
+      });
+    } else {
+      // 集荷選択時は通常価格のみ表示
+      results.push({
+        service: 'ヤマト宅急便コンパクト（集荷）',
+        price: yamtoCompactPrice,
+        features: ['専用BOX', '手渡し', '追跡あり', '自宅集荷', '損害賠償'],
+        provider: 'ヤマト運輸'
+      });
+    }
   }
   
   if (sizeCategory === '60' && fromRegion && toRegion) {
-    // メルカリ便（宅急便60）
+    // メルカリ便（宅急便60）- 持ち込み割引なし
     results.push({
       service: 'メルカリ便（宅急便60）',
       price: mercari60Rates[fromRegion][toRegion],
@@ -231,34 +236,49 @@ export function calculateActualShippingCost(
     
     // ヤマト運輸（宅急便60）
     const yamato60Price = takkyubin60Rates[fromRegion][toRegion];
-    const yamato60WithDiscount = yamato60Price - 110; // 持込割引適用
     
-    results.push({
-      service: 'ヤマト宅急便60（持込）',
-      price: yamato60WithDiscount,
-      features: ['60cm以内', '手渡し', '追跡あり', '持込割引-110円', '最大30万円補償'],
-      provider: 'ヤマト運輸'
-    });
-    
-    results.push({
-      service: 'ヤマト宅急便60（集荷）',
-      price: yamato60Price,
-      features: ['60cm以内', '手渡し', '追跡あり', '自宅集荷', '最大30万円補償'],
-      provider: 'ヤマト運輸'
-    });
+    if (isDropOff) {
+      // 持ち込み選択時は割引価格のみ表示
+      results.push({
+        service: 'ヤマト宅急便60（持込）',
+        price: yamato60Price - 110,
+        features: ['60cm以内', '手渡し', '追跡あり', '持込割引-110円', '最大30万円補償'],
+        provider: 'ヤマト運輸',
+        hasPickupDiscount: true
+      });
+    } else {
+      // 集荷選択時は通常価格のみ表示
+      results.push({
+        service: 'ヤマト宅急便60（集荷）',
+        price: yamato60Price,
+        features: ['60cm以内', '手渡し', '追跡あり', '自宅集荷', '最大30万円補償'],
+        provider: 'ヤマト運輸'
+      });
+    }
   }
   
   // より大きなサイズ（80〜200）の場合は、60サイズの料金をベースに算出
   if (['80', '100', '120', '140', '160', '180', '200'].includes(sizeCategory) && fromRegion && toRegion) {
     const basePrice = takkyubin60Rates[fromRegion][toRegion];
     const multiplier = getSizeMultiplier(sizeCategory);
+    const calculatedPrice = Math.round(basePrice * multiplier);
     
-    results.push({
-      service: `ヤマト宅急便${sizeCategory}（持込）`,
-      price: Math.round(basePrice * multiplier) - 110,
-      features: [`${sizeCategory}cm以内`, '手渡し', '追跡あり', '持込割引-110円', '最大30万円補償'],
-      provider: 'ヤマト運輸'
-    });
+    if (isDropOff) {
+      results.push({
+        service: `ヤマト宅急便${sizeCategory}（持込）`,
+        price: calculatedPrice - 110,
+        features: [`${sizeCategory}cm以内`, '手渡し', '追跡あり', '持込割引-110円', '最大30万円補償'],
+        provider: 'ヤマト運輸',
+        hasPickupDiscount: true
+      });
+    } else {
+      results.push({
+        service: `ヤマト宅急便${sizeCategory}（集荷）`,
+        price: calculatedPrice,
+        features: [`${sizeCategory}cm以内`, '手渡し', '追跡あり', '自宅集荷', '最大30万円補償'],
+        provider: 'ヤマト運輸'
+      });
+    }
   }
   
   return results.sort((a, b) => a.price - b.price);
