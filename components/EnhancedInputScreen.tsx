@@ -1,4 +1,4 @@
-// components/EnhancedInputScreen.tsx - カスタムドロップダウン版
+// components/EnhancedInputScreen.tsx - 持ち込み・仕入れ値対応版
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   FlatList,
+  Switch,
 } from 'react-native';
 import { ProductInfo } from '../types/shipping';
 
@@ -41,11 +42,6 @@ const CustomDropdown: React.FC<DropdownProps> = ({
   const selectedOption = options.find(option => option.value === value);
   const displayText = selectedOption ? selectedOption.label : placeholder;
 
-  const handleSelect = (selectedValue: string) => {
-    onValueChange(selectedValue);
-    setIsVisible(false);
-  };
-
   return (
     <View style={styles.formGroup}>
       <Text style={styles.label}>{label}</Text>
@@ -53,21 +49,23 @@ const CustomDropdown: React.FC<DropdownProps> = ({
         style={styles.dropdownButton}
         onPress={() => setIsVisible(true)}
       >
-        <Text style={[styles.dropdownText, !selectedOption && styles.placeholderText]}>
+        <Text style={[
+          styles.dropdownText,
+          !selectedOption && styles.placeholderText
+        ]}>
           {displayText}
         </Text>
         <Text style={styles.dropdownArrow}>▼</Text>
       </TouchableOpacity>
-
+      
       <Modal
         visible={isVisible}
         transparent={true}
         animationType="fade"
         onRequestClose={() => setIsVisible(false)}
       >
-        <TouchableOpacity
+        <TouchableOpacity 
           style={styles.modalOverlay}
-          activeOpacity={1}
           onPress={() => setIsVisible(false)}
         >
           <View style={styles.modalContent}>
@@ -84,14 +82,16 @@ const CustomDropdown: React.FC<DropdownProps> = ({
             <FlatList
               data={options}
               keyExtractor={(item) => item.value}
-              style={styles.optionsList}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[
                     styles.optionItem,
                     item.value === value && styles.selectedOption
                   ]}
-                  onPress={() => handleSelect(item.value)}
+                  onPress={() => {
+                    onValueChange(item.value);
+                    setIsVisible(false);
+                  }}
                 >
                   <Text style={[
                     styles.optionText,
@@ -135,10 +135,21 @@ export default function EnhancedInputScreen({
       errors.push('販売価格は0円より大きい値を入力してください');
     }
     
+    // 仕入れ値のバリデーション（任意項目だが、入力がある場合はチェック）
+    if (productInfo.costPrice && parseFloat(productInfo.costPrice) <= 0) {
+      errors.push('仕入れ値は0円より大きい値を入力してください');
+    }
+    
+    // 販売価格 < 仕入れ値の場合の警告
+    if (productInfo.salePrice && productInfo.costPrice && 
+        parseFloat(productInfo.salePrice) < parseFloat(productInfo.costPrice)) {
+      errors.push('⚠️ 販売価格が仕入れ値を下回っています');
+    }
+    
     setValidation({ isValid: errors.length === 0, errors });
   }, [productInfo]);
 
-  const updateField = (field: keyof ProductInfo, value: string) => {
+  const updateField = (field: keyof ProductInfo, value: string | boolean) => {
     onProductInfoChange({
       ...productInfo,
       [field]: value
@@ -156,12 +167,15 @@ export default function EnhancedInputScreen({
   // カテゴリオプション
   const categoryOptions = [
     { label: 'カテゴリを選択してください', value: '' },
-    { label: '衣類', value: '衣類' },
-    { label: '書籍', value: '書籍' },
-    { label: 'ゲーム', value: 'ゲーム' },
-    { label: '雑貨', value: '雑貨' },
-    { label: '家電', value: '家電' },
-    { label: '食品', value: '食品' },
+    { label: '📚 本・雑誌・コミック', value: '書籍' },
+    { label: '👕 衣類・ファッション', value: '衣類' },
+    { label: '🎮 ゲーム・ホビー', value: 'ゲーム' },
+    { label: '📱 家電・スマホ・カメラ', value: '家電' },
+    { label: '🏠 生活雑貨・インテリア', value: '雑貨' },
+    { label: '💄 コスメ・美容', value: 'コスメ' },
+    { label: '🍫 食品・飲料', value: '食品' },
+    { label: '🚗 自動車・バイク', value: '自動車' },
+    { label: '📝 その他', value: 'その他' },
   ];
 
   // 都道府県オプション
@@ -220,16 +234,16 @@ export default function EnhancedInputScreen({
     <SafeAreaView style={styles.container}>
       {/* ヘッダー */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📦 発送診断アプリ</Text>
-        <Text style={styles.headerSubtitle}>最安・最速の発送方法</Text>
-        <Text style={styles.headerDescription}>すぐ見つかる</Text>
+        <Text style={styles.headerTitle}>📦 フリマ発送診断</Text>
+        <Text style={styles.headerSubtitle}>最安・最適な配送方法を見つけよう</Text>
+        <Text style={styles.headerDescription}>商品情報を入力すると、AI分析もできます</Text>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         
         {/* カテゴリ選択 */}
         <CustomDropdown
-          label="📦 カテゴリ"
+          label="📂 商品カテゴリ"
           value={productInfo.category}
           placeholder="カテゴリを選択してください"
           options={categoryOptions}
@@ -257,6 +271,29 @@ export default function EnhancedInputScreen({
             options={prefectureOptions}
             onValueChange={(value) => updateField('destination', value)}
           />
+
+          {/* 持ち込みオプション */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>🚶‍♂️ 配送方法</Text>
+            <View style={styles.switchContainer}>
+              <View style={styles.switchOption}>
+                <Text style={styles.switchLabel}>
+                  {productInfo.isDropOff ? '🏪 コンビニ・営業所に持ち込み' : '📞 自宅集荷を依頼'}
+                </Text>
+                <Switch
+                  value={productInfo.isDropOff || false}
+                  onValueChange={(value) => updateField('isDropOff', value)}
+                  trackColor={{ false: '#767577', true: '#81b0ff' }}
+                  thumbColor={productInfo.isDropOff ? '#f5dd4b' : '#f4f3f4'}
+                />
+              </View>
+              <Text style={styles.helperText}>
+                💡 {productInfo.isDropOff 
+                  ? 'ヤマト運輸なら持ち込みで110円割引！' 
+                  : '自宅集荷は楽ですが、持ち込みの方がお得です'}
+              </Text>
+            </View>
+          </View>
           
           <Text style={styles.helperText}>
             💡 距離によって配送料金が変わります
@@ -330,7 +367,7 @@ export default function EnhancedInputScreen({
           <Text style={styles.sectionTitle}>💰 販売情報</Text>
           
           <View style={styles.formGroup}>
-            <Text style={styles.label}>💵 販売予定価格 (円)</Text>
+            <Text style={styles.label}>💵 販売予定価格 (円) <Text style={styles.required}>必須</Text></Text>
             <TextInput
               style={styles.input}
               placeholder="2000"
@@ -342,6 +379,49 @@ export default function EnhancedInputScreen({
               💡 販売価格を入力すると利益の詳細分析ができます
             </Text>
           </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>🛒 仕入れ値 (円) <Text style={styles.optional}>任意</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder="例: 1200 (空白でもOK)"
+              value={productInfo.costPrice || ''}
+              onChangeText={(value) => updateField('costPrice', value)}
+              keyboardType="numeric"
+            />
+            <Text style={styles.helperText}>
+              💡 仕入れ値を入力すると、より詳細な利益率分析が可能です
+            </Text>
+          </View>
+
+          {/* 利益率プレビュー */}
+          {productInfo.salePrice && productInfo.costPrice && (
+            <View style={styles.profitPreview}>
+              <Text style={styles.profitPreviewTitle}>📊 利益率プレビュー</Text>
+              {(() => {
+                const salePrice = parseFloat(productInfo.salePrice);
+                const costPrice = parseFloat(productInfo.costPrice);
+                const platformFee = Math.round(salePrice * 0.1); // メルカリ手数料10%
+                const grossProfit = salePrice - costPrice;
+                const netProfitBeforeShipping = grossProfit - platformFee;
+                const profitRate = ((grossProfit / salePrice) * 100);
+                
+                return (
+                  <View>
+                    <Text style={styles.profitLine}>
+                      売上総利益: ¥{grossProfit.toLocaleString()} ({profitRate.toFixed(1)}%)
+                    </Text>
+                    <Text style={styles.profitLine}>
+                      手数料差引後: ¥{netProfitBeforeShipping.toLocaleString()}
+                    </Text>
+                    <Text style={styles.profitNote}>
+                      ※ 送料はこの後で差し引かれます
+                    </Text>
+                  </View>
+                );
+              })()}
+            </View>
+          )}
         </View>
 
         {/* 診断ボタン */}
@@ -353,7 +433,9 @@ export default function EnhancedInputScreen({
           onPress={handleDiagnosis}
         >
           <Text style={styles.ctaButtonText}>
-            {validation.isValid ? 'おすすめを診断する' : '入力内容を確認してください'}
+            {validation.isValid ? 
+              '🔍 おすすめ配送方法を診断する' : 
+              '⚠️ 入力内容を確認してください'}
           </Text>
         </TouchableOpacity>
 
@@ -464,6 +546,16 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
   },
+  required: {
+    color: '#ff6b6b',
+    fontSize: 12,
+    fontWeight: '400',
+  },
+  optional: {
+    color: '#6c757d',
+    fontSize: 12,
+    fontWeight: '400',
+  },
   input: {
     backgroundColor: '#f8f9fa',
     borderWidth: 1,
@@ -473,6 +565,73 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     fontSize: 18,
     minHeight: 56,
+  },
+  
+  // スイッチコンテナ
+  switchContainer: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 16,
+  },
+  switchOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  switchLabel: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+    marginRight: 16,
+  },
+  
+  // サイズ入力
+  sizeInputWithLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sizeInputLabel: {
+    fontSize: 14,
+    color: '#666',
+    width: 80,
+    marginRight: 12,
+  },
+  sizeInput: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e1e5e9',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  
+  // 利益プレビュー
+  profitPreview: {
+    backgroundColor: '#e8f5e8',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 8,
+  },
+  profitPreviewTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2e7d2e',
+    marginBottom: 8,
+  },
+  profitLine: {
+    fontSize: 14,
+    color: '#2e7d2e',
+    marginBottom: 4,
+  },
+  profitNote: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   
   // カスタムドロップダウンのスタイル
@@ -545,15 +704,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  optionsList: {
-    maxHeight: 400,
-  },
   optionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -570,79 +725,66 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   checkmark: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#1E88E5',
     fontWeight: 'bold',
   },
   
-  sizeInputWithLabel: {
-    marginBottom: 12,
-  },
-  sizeInputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    marginBottom: 6,
-    paddingLeft: 4,
-  },
-  sizeInput: {
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e1e5e9',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    fontSize: 18,
-    minHeight: 56,
-  },
-  helperText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
+  // CTAボタン
   ctaButton: {
     backgroundColor: '#1E88E5',
-    paddingVertical: 18,
     borderRadius: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    marginTop: 20,
     marginBottom: 20,
-    minHeight: 56,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   ctaButtonDisabled: {
-    backgroundColor: '#bdc3c7',
+    backgroundColor: '#ccc',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   ctaButtonText: {
     color: 'white',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
+  
+  // ステータス・エラー表示
   statusContainer: {
     backgroundColor: '#d4edda',
-    borderColor: '#c3e6cb',
-    borderWidth: 1,
     borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-    marginBottom: 40,
+    padding: 16,
+    marginBottom: 20,
   },
   statusText: {
     color: '#155724',
-    fontSize: 12,
+    fontSize: 14,
+    textAlign: 'center',
     fontWeight: '600',
   },
   errorContainer: {
     backgroundColor: '#f8d7da',
-    borderColor: '#f5c6cb',
-    borderWidth: 1,
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 40,
+    padding: 16,
+    marginBottom: 20,
   },
   errorText: {
     color: '#721c24',
-    fontSize: 12,
+    fontSize: 14,
     marginBottom: 4,
+  },
+  
+  // ヘルパーテキスト
+  helperText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    lineHeight: 16,
   },
 });
