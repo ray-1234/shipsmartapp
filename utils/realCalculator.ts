@@ -1,6 +1,6 @@
 // utils/realCalculator.ts - 空配列防止修正版
 import { ProductInfo, ShippingResult, ShippingOption } from '../types/shipping';
-import { calculateActualShippingCost } from '../data/realShippingDatabase';
+import { calculateActualShippingCost } from '../data/shippingDatabase';
 
 export function calculateRealShipping(productInfo: ProductInfo): ShippingResult {
   const length = parseFloat(productInfo.length) || 0;

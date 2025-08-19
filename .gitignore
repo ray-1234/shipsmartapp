@@ -151,3 +151,10 @@ Desktop.ini
 
 # INPUT系
 *.pdf
+
+# 開発時一時ファイル
+paste.txt
+functions/
+vercel.json
+*.backup
+*.temp
