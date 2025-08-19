@@ -16,6 +16,8 @@
     "@expo/metro-runtime": "~5.0.4",
     "@react-native-picker/picker": "2.11.1",
     "expo": "~53.0.20",
+    "expo-build-properties": "~0.14.8",
+    "expo-dev-client": "~5.2.4",
     "expo-status-bar": "~2.2.3",
     "openai": "^4.104.0",
     "react": "19.0.0",
@@ -23,11 +25,11 @@
     "react-native": "0.79.5",
     "react-native-qrcode-svg": "^6.3.15",
     "react-native-svg": "15.11.2",
-    "react-native-web": "^0.20.0",
-    "expo-dev-client": "~5.2.4"
+    "react-native-web": "^0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@expo/server": "^0.6.3",
     "@types/react": "~19.0.10",
     "typescript": "~5.8.3"
   },

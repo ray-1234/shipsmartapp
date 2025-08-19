@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -15,10 +14,12 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "platforms": ["ios", "android", "web"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.shipsmart.freightapp",
       "buildNumber": "1",
+      "deploymentTarget": "15.1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -36,7 +37,21 @@
       "output": "single",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [],
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          },
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 21
+          }
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "a1a107fa-6e9b-4a22-93aa-dd9d49bd70ac"

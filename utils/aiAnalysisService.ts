@@ -1,4 +1,4 @@
-// utils/aiAnalysisService.ts - EAS統合版
+// utils/aiAnalysisService.ts - Vercel API統合版（完全版）
 import { ProductInfo, ShippingOption } from '../types/shipping';
 
 export interface AIAnalysisRequest {
@@ -11,14 +11,12 @@ export interface AIAnalysisRequest {
   };
 }
 
-// ProfitAnalysis インターフェースの拡張
 export interface ProfitAnalysis {
   currentProfit: number;
   optimizedProfit: number;
   improvements: string[];
   costSavings: number;
   priceRecommendation: string;
-  // 新しく追加
   breakdown: {
     salePrice: number;
     platformFee: number;
@@ -72,38 +70,257 @@ export interface AIAnalysisResult {
 
 export type AnalysisType = 'comprehensive' | 'profit' | 'risk' | 'packaging' | 'market';
 
-// 🎯 EAS統合メイン分析関数
+// 🎯 統合AI分析関数（Vercel API + ローカル分析）
 export async function runAIAnalysis(
   request: AIAnalysisRequest,
   analysisType: AnalysisType = 'comprehensive'
 ): Promise<AIAnalysisResult> {
-  console.log('🤖 EAS統合AI分析開始:', { 
+  console.log('🤖 統合AI分析開始:', { 
     analysisType, 
     productInfo: request.productInfo,
-    projectId: 'a1a107fa-6e9b-4a22-93aa-dd9d49bd70ac'
+    shippingOptionsCount: request.shippingOptions?.length || 0
   });
 
   try {
-    // 🏠 統合ローカル分析エンジン（常に動作保証）
-    const result = await runAdvancedLocalAnalysis(request, analysisType);
-    
-    console.log('✅ EAS統合分析完了:', {
-      analysisId: result.analysisId,
-      confidence: result.confidence,
-      summaryLength: result.summary.length
-    });
-    
-    return result;
+    // 📡 Step 1: Vercel API呼び出しを試行
+    const vercelResult = await tryVercelAPI(request, analysisType);
+    if (vercelResult) {
+      console.log('✅ Vercel API成功 - 高品質分析完了');
+      return vercelResult;
+    }
+
+    // 🏠 Step 2: Vercel APIが失敗した場合はローカル高度分析
+    console.log('🏠 ローカル高度分析にフォールバック');
+    return await runAdvancedLocalAnalysis(request, analysisType);
 
   } catch (error) {
-    console.error('❌ EAS分析エラー:', error);
+    console.error('❌ AI分析エラー:', error);
     
-    // フォールバック
+    // 🆘 Step 3: 最終フォールバック
     return getBasicAnalysis(request);
   }
 }
 
-// 🧠 高度なローカル分析エンジン
+// 🌐 Vercel API呼び出し試行
+async function tryVercelAPI(
+  request: AIAnalysisRequest,
+  analysisType: AnalysisType
+): Promise<AIAnalysisResult | null> {
+  
+  // Vercel APIエンドポイント（実際のドメイン）
+  const vercelEndpoints = [
+    'https://ship-smart-alpha.vercel.app/api/ai-analysis', // 正式エンドポイント
+  ];
+
+  const timeoutMs = 15000; // 15秒タイムアウト
+  
+  for (const endpoint of vercelEndpoints) {
+    try {
+      console.log(`🔍 Vercel API試行: ${endpoint}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: generateVercelPrompt(request.productInfo, request.shippingOptions, analysisType),
+          analysisType,
+          model: 'gpt-4o',
+          maxTokens: 1200
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn(`⚠️ Vercel API HTTP error: ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      console.log('✅ Vercel APIレスポンス受信:', {
+        hasAnalysis: !!data.analysis,
+        metadata: data.metadata
+      });
+
+      // Vercel APIレスポンスを変換
+      return transformVercelResponse(data, request, analysisType);
+
+    } catch (error: any) {
+      console.warn(`⚠️ Vercel API呼び出し失敗: ${endpoint}`, error.message);
+      continue;
+    }
+  }
+
+  console.log('🔄 すべてのVercel APIエンドポイント試行完了 - ローカル分析に移行');
+  return null;
+}
+
+// 🔄 Vercel APIレスポンス変換
+function transformVercelResponse(
+  vercelData: any,
+  request: AIAnalysisRequest,
+  analysisType: AnalysisType
+): AIAnalysisResult {
+  
+  let analysis;
+  try {
+    analysis = typeof vercelData.analysis === 'string' 
+      ? JSON.parse(vercelData.analysis) 
+      : vercelData.analysis;
+  } catch (error) {
+    console.warn('⚠️ Vercel JSON解析失敗、フォールバック処理');
+    analysis = vercelData.analysis || {};
+  }
+
+  // 基本数値計算
+  const salePrice = parseInt(request.productInfo.salePrice || '') || 0;
+  const platformFee = Math.round(salePrice * 0.1);
+  const cheapestOption = request.shippingOptions.length > 0 
+    ? request.shippingOptions.reduce((prev, curr) => prev.price < curr.price ? prev : curr)
+    : { price: 0, name: '未設定' };
+  const currentProfit = salePrice - platformFee - cheapestOption.price;
+
+  return {
+    summary: analysis.summary || `${request.productInfo.category}のVercel AI分析が完了しました。配送最適化により利益向上が期待できます。`,
+    profitAnalysis: {
+      currentProfit: analysis.profitAnalysis?.currentProfit || currentProfit,
+      optimizedProfit: analysis.profitAnalysis?.optimizedProfit || Math.max(currentProfit, currentProfit + 100),
+      improvements: analysis.profitAnalysis?.improvements || [
+        'Vercel AI分析による配送方法の最適化',
+        '梱包効率化でコスト削減を実現',
+        '価格戦略の見直しによる利益向上'
+      ],
+      costSavings: (analysis.profitAnalysis?.optimizedProfit || currentProfit + 100) - currentProfit,
+      priceRecommendation: analysis.profitAnalysis?.priceRecommendation || 
+        (currentProfit > 0 ? 'Vercel AI推奨: 現在の価格設定は適正です' : 'Vercel AI推奨: 価格の見直しを検討してください'),
+      breakdown: {
+        salePrice,
+        platformFee,
+        platformName: 'メルカリ',
+        profitByShipping: request.shippingOptions.map(option => ({
+          shippingName: option.name.replace(/🥇|🥈|🥉|📮|🐱|📦/g, '').trim(),
+          shippingCost: option.price,
+          profit: salePrice - platformFee - option.price,
+          profitRate: ((salePrice - platformFee - option.price) / salePrice) * 100,
+          deliveryDays: option.deliveryDays
+        }))
+      }
+    },
+    riskAssessment: {
+      damageRisk: analysis.riskAssessment?.damageRisk || assessCategoryRisk(request.productInfo.category).damage,
+      delayRisk: analysis.riskAssessment?.delayRisk || 3,
+      lossRisk: analysis.riskAssessment?.lossRisk || 2,
+      overallRisk: analysis.riskAssessment?.overallRisk || 3,
+      preventionTips: analysis.riskAssessment?.preventionTips || [
+        'Vercel AI推奨: 適切な梱包材での保護',
+        '配送方法の特性を理解した選択',
+        '商品説明での注意喚起徹底'
+      ]
+    },
+    packagingAdvice: {
+      recommendedMaterials: analysis.packagingAdvice?.recommendedMaterials || 
+        getRecommendedMaterials(request.productInfo.category),
+      costEffectiveSolutions: analysis.packagingAdvice?.costEffectiveSolutions || [
+        'Vercel AI推奨: 100円ショップでの梱包材調達',
+        '使い回し可能な資材の選択',
+        'サイズに最適化した梱包設計'
+      ],
+      budgetBreakdown: calculatePackagingCosts(
+        analysis.packagingAdvice?.recommendedMaterials || 
+        getRecommendedMaterials(request.productInfo.category)
+      )
+    },
+    marketInsights: {
+      competitiveAdvantage: analysis.marketInsights?.competitiveAdvantage || 
+        'Vercel AI分析による配送効率化で競争力向上',
+      pricingStrategy: analysis.marketInsights?.pricingStrategy || 
+        '送料込み価格での競争力強化戦略',
+      timingAdvice: analysis.marketInsights?.timingAdvice || 
+        'Vercel AI推奨: 平日午前中の出品で閲覧数最大化',
+      buyerBehavior: analysis.marketInsights?.buyerBehavior || 
+        '送料無料表示で購買意欲向上効果',
+      demandForecast: analysis.marketInsights?.demandForecast || 
+        getDemandForecast(request.productInfo.category)
+    },
+    confidence: 95, // Vercel API統合版の最高信頼度
+    analysisId: `vercel_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
+    timestamp: new Date().toISOString()
+  };
+}
+
+// 📝 Vercel API用プロンプト生成
+function generateVercelPrompt(
+  productInfo: ProductInfo,
+  shippingOptions: ShippingOption[],
+  analysisType: string
+): string {
+  const salePrice = productInfo.salePrice || '未設定';
+  const category = productInfo.category || 'その他';
+  const dimensions = `${productInfo.length || '?'}×${productInfo.width || '?'}×${productInfo.thickness || '?'}cm`;
+  const weight = `${productInfo.weight || '?'}g`;
+  
+  const optionsText = shippingOptions.length > 0 
+    ? shippingOptions.map((option, index) => 
+        `${index + 1}. ${option.name}: ${option.price}円 (${option.deliveryDays})`
+      ).join('\n')
+    : '配送オプション計算中';
+
+  return `
+【フリマ配送診断 - ${analysisType}分析】
+
+商品情報:
+- カテゴリ: ${category}
+- 販売価格: ${salePrice}円
+- サイズ: ${dimensions}
+- 重量: ${weight}
+- 発送元: ${productInfo.senderLocation || '東京都'}
+- 配送先: ${productInfo.destination || '全国'}
+
+配送オプション:
+${optionsText}
+
+分析要求: ${analysisType}
+
+上記情報を基に、フリマ出品者向けの実践的で具体的なアドバイスをJSON形式で提供してください。
+特に以下の構造で回答してください：
+
+{
+  "summary": "分析結果の要約（100文字程度）",
+  "profitAnalysis": {
+    "currentProfit": 数値,
+    "optimizedProfit": 数値,
+    "improvements": ["改善提案1", "改善提案2", "改善提案3"],
+    "priceRecommendation": "価格戦略提案"
+  },
+  "riskAssessment": {
+    "overallRisk": 1-10,
+    "damageRisk": 1-10,
+    "delayRisk": 1-10,
+    "lossRisk": 1-10,
+    "preventionTips": ["対策1", "対策2", "対策3"]
+  },
+  "packagingAdvice": {
+    "recommendedMaterials": ["材料1", "材料2", "材料3"],
+    "costEffectiveSolutions": ["解決策1", "解決策2"]
+  },
+  "marketInsights": {
+    "competitiveAdvantage": "競争優位性分析",
+    "pricingStrategy": "価格戦略",
+    "demandForecast": "需要予測"
+  }
+}
+
+メルカリ手数料10%を考慮した実践的なアドバイスを提供してください。
+  `;
+}
+
+// 🧠 高度なローカル分析エンジン（既存のコードを維持）
 async function runAdvancedLocalAnalysis(
   request: AIAnalysisRequest,
   analysisType: AnalysisType
@@ -116,7 +333,13 @@ async function runAdvancedLocalAnalysis(
     analysisType
   });
 
-  // 📊 基本数値計算
+  // ✅ 空配列チェック追加
+  if (!shippingOptions || shippingOptions.length === 0) {
+    console.warn('⚠️ 配送オプションが空です。ダミーデータで処理を継続します。');
+    return createEmptyOptionsAnalysis(productInfo);
+  }
+
+  // 📊 基本数値計算（安全なreduce）
   const cheapestOption = shippingOptions.reduce((prev, curr) => 
     prev.price < curr.price ? prev : curr
   );
@@ -162,12 +385,94 @@ async function runAdvancedLocalAnalysis(
     riskAssessment,
     packagingAdvice,
     marketInsights,
-    confidence: 92, // EAS統合版の高信頼度
-    analysisId: `eas_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
+    confidence: 88, // ローカル高度分析の信頼度
+    analysisId: `local_adv_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
     timestamp: new Date().toISOString()
   };
 
   return result;
+}
+
+// 🆘 空の配送オプション用の分析
+function createEmptyOptionsAnalysis(productInfo: ProductInfo): AIAnalysisResult {
+  const salePrice = parseInt(productInfo.salePrice ?? '') || 1500;
+  const platformFee = Math.round(salePrice * 0.1);
+  
+  return {
+    summary: `現在、${productInfo.category}の配送料金を計算中です。商品サイズ（${productInfo.length}×${productInfo.width}×${productInfo.thickness}cm）、重量（${productInfo.weight}g）での最適な配送方法を検索しています。`,
+    profitAnalysis: {
+      currentProfit: salePrice - platformFee,
+      optimizedProfit: salePrice - platformFee,
+      improvements: ['配送方法の選択肢が見つかり次第、詳細な利益分析を実行します'],
+      costSavings: 0,
+      priceRecommendation: '配送料金確定後に最適価格を提案します',
+      breakdown: {
+        salePrice,
+        platformFee,
+        platformName: 'メルカリ',
+        profitByShipping: []
+      }
+    },
+    riskAssessment: {
+      damageRisk: 3,
+      delayRisk: 2,
+      lossRisk: 1,
+      overallRisk: 2,
+      preventionTips: ['配送方法が確定次第、詳細なリスク分析を提供します']
+    },
+    packagingAdvice: {
+      recommendedMaterials: ['基本梱包材での保護'],
+      costEffectiveSolutions: ['配送方法に応じた最適梱包を提案'],
+      budgetBreakdown: []
+    },
+    marketInsights: {
+      competitiveAdvantage: '配送効率の最適化により競争力向上',
+      pricingStrategy: '配送費を考慮した戦略的価格設定',
+      timingAdvice: '配送方法確定後に詳細提案',
+      buyerBehavior: '送料込み価格での訴求力強化',
+      demandForecast: '安定需要継続予測'
+    },
+    confidence: 60,
+    analysisId: `empty_${Date.now()}`,
+    timestamp: new Date().toISOString()
+  };
+}
+
+// 🔧 ユーティリティ関数群
+function assessCategoryRisk(category: string): { damage: number, delay: number, loss: number } {
+  const riskMap: { [key: string]: { damage: number, delay: number, loss: number } } = {
+    '衣類': { damage: 1, delay: 2, loss: 1 },
+    '本・雑誌': { damage: 2, delay: 2, loss: 1 },
+    'CD・DVD': { damage: 4, delay: 2, loss: 2 },
+    '精密機器': { damage: 8, delay: 3, loss: 3 },
+    'ガラス製品': { damage: 9, delay: 2, loss: 2 },
+    'その他': { damage: 3, delay: 3, loss: 2 }
+  };
+  return riskMap[category] || riskMap['その他'];
+}
+
+function getRecommendedMaterials(category: string): string[] {
+  const materialMap: { [key: string]: string[] } = {
+    '衣類': ['OPP袋（防水）', 'プチプチ薄手'],
+    '本・雑誌': ['OPP袋（防水）', 'ダンボール小'],
+    'CD・DVD': ['プチプチ厚手', 'ダンボール', '緩衝材'],
+    '精密機器': ['エアキャップ厚手', 'ダンボール二重', '緩衝材多重'],
+    'ガラス製品': ['エアキャップ特厚', 'ダンボール二重', '緩衝材多重'],
+    'その他': ['プチプチ薄手', 'ダンボール']
+  };
+  return materialMap[category] || materialMap['その他'];
+}
+
+function getDemandForecast(category: string): string {
+  const forecastMap: { [key: string]: string } = {
+    '衣類': '季節需要で変動、秋冬物は9-11月が最需要期',
+    '本・雑誌': '安定需要、新学期・夏休み前に若干増加',
+    'CD・DVD': '安定需要継続、レア商品は高値維持',
+    '精密機器': '新製品発売時期で中古需要変動',
+    'ガラス製品': '季節イベント前に需要増',
+    'その他': '安定需要継続予測'
+  };
+  return forecastMap[category] || forecastMap['その他'];
 }
 
 // 💰 改善された利益最適化分析
@@ -192,36 +497,38 @@ function analyzeProfitOptimization(
     };
   });
 
-  const cheapestShipping = profitByShipping.reduce((prev, curr) => 
-    prev.shippingCost < curr.shippingCost ? prev : curr
-  );
+  // 安全なreduce処理
+  const cheapestShipping = profitByShipping.length > 0 
+    ? profitByShipping.reduce((prev, curr) => 
+        prev.shippingCost < curr.shippingCost ? prev : curr
+      )
+    : { profit: salePrice - platformFee, shippingCost: 0 };
   
-  const mostProfitableShipping = profitByShipping.reduce((prev, curr) => 
-    prev.profit > curr.profit ? prev : curr
-  );
+  const mostProfitableShipping = profitByShipping.length > 0
+    ? profitByShipping.reduce((prev, curr) => 
+        prev.profit > curr.profit ? prev : curr
+      )
+    : cheapestShipping;
 
-  const improvements: string[] = [];
-  const maxProfit = mostProfitableShipping.profit;
-  const costSavings = Math.max(...profitByShipping.map(p => p.shippingCost)) - cheapestShipping.shippingCost;
-
-  if (costSavings > 0) {
-    improvements.push(`${cheapestShipping.shippingName}選択で¥${costSavings}の送料節約`);
+  const improvements = [];
+  if (mostProfitableShipping.profit > cheapestShipping.profit) {
+    improvements.push(`${mostProfitableShipping.shippingName}に変更で${mostProfitableShipping.profit - cheapestShipping.profit}円の利益向上`);
   }
-
-  const currentProfitRate = (maxProfit / salePrice) * 100;
-  if (currentProfitRate < 20) {
-    const recommendedPrice = Math.ceil((cheapestShipping.shippingCost + platformFee) / 0.8);
-    improvements.push(`販売価格を¥${recommendedPrice}に上げて利益率20%確保を推奨`);
+  
+  if (cheapestShipping.profit < salePrice * 0.2) {
+    improvements.push('利益率20%未満のため価格見直しを推奨');
   }
-
-  improvements.push('梱包材を100円ショップで調達して¥50-100節約可能');
 
   return {
-    currentProfit: maxProfit,
-    optimizedProfit: maxProfit + costSavings,
+    currentProfit: cheapestShipping.profit,
+    optimizedProfit: mostProfitableShipping.profit,
     improvements,
-    costSavings,
-    priceRecommendation: generateDetailedPriceRecommendation(salePrice, maxProfit, currentProfitRate),
+    costSavings: mostProfitableShipping.profit - cheapestShipping.profit,
+    priceRecommendation: generatePriceRecommendation(
+      salePrice, 
+      cheapestShipping.profit, 
+      (cheapestShipping.profit / salePrice) * 100
+    ),
     breakdown: {
       salePrice,
       platformFee,
@@ -231,113 +538,96 @@ function analyzeProfitOptimization(
   };
 }
 
-// 詳細な価格推奨メッセージ
-function generateDetailedPriceRecommendation(
-  currentPrice: number,
-  currentProfit: number,
-  profitRate: number
-): string {
-  if (profitRate < 10) {
-    return `⚠️ 利益率${profitRate.toFixed(1)}%は低すぎます。価格上昇または最安配送選択を強く推奨`;
-  } else if (profitRate < 20) {
-    return `💡 利益率${profitRate.toFixed(1)}%。改善の余地あり、最安配送で利益率向上`;
-  } else if (profitRate > 40) {
-    return `✨ 利益率${profitRate.toFixed(1)}%で高収益！価格競争力を活かした積極販売推奨`;
-  } else {
-    return `👍 利益率${profitRate.toFixed(1)}%で適正範囲。現在の戦略継続を推奨`;
-  }
-}
-
-
-
-// ⚠️ 配送リスク分析
+// ⚠️ リスク評価システム
 function analyzeShippingRisks(
   productInfo: ProductInfo,
   shippingOptions: ShippingOption[],
-  cheapestOption: ShippingOption
+  selectedOption: ShippingOption
 ): RiskAssessment {
-  // カテゴリ別基本リスク
-  const categoryRiskMap: { [key: string]: number } = {
-    '本・書籍': 2,
-    'CD・DVD': 3,
-    '衣類': 1,
-    '精密機器': 8,
-    'ガラス製品': 9,
-    'アクセサリー': 6,
-    'おもちゃ': 4,
-    'その他': 5
+  let damageRisk = 2; // ベースリスク
+  let delayRisk = 3;
+  let lossRisk = 1;
+
+  // カテゴリ別リスク調整
+  const categoryRisks: { [key: string]: { damage: number, delay: number, loss: number } } = {
+    '衣類': { damage: 1, delay: 2, loss: 1 },
+    '本・雑誌': { damage: 2, delay: 2, loss: 1 },
+    'CD・DVD': { damage: 4, delay: 2, loss: 2 },
+    '精密機器': { damage: 8, delay: 3, loss: 3 },
+    'ガラス製品': { damage: 9, delay: 2, loss: 2 },
+    'その他': { damage: 3, delay: 3, loss: 2 }
   };
 
-  const baseRisk = categoryRiskMap[productInfo.category] || 5;
+  const categoryRisk = categoryRisks[productInfo.category] || categoryRisks['その他'];
+  damageRisk = categoryRisk.damage;
+  delayRisk = categoryRisk.delay;
+  lossRisk = categoryRisk.loss;
+
+  // サイズ・重量による調整
+  const volume = parseInt(productInfo.length || '0') * 
+                parseInt(productInfo.width || '0') * 
+                parseInt(productInfo.thickness || '0');
   
-  // サイズ・重量によるリスク調整
-  const dimensions = {
-    length: parseInt(productInfo.length) || 0,
-    width: parseInt(productInfo.width) || 0,
-    thickness: parseInt(productInfo.thickness) || 0,
-    weight: parseInt(productInfo.weight) || 0
-  };
-  
-  const volume = dimensions.length * dimensions.width * dimensions.thickness;
-  const sizeRiskMultiplier = volume > 100000 ? 1.4 : volume > 50000 ? 1.2 : 1.0;
-  const weightRiskMultiplier = dimensions.weight > 1000 ? 1.3 : dimensions.weight > 500 ? 1.1 : 1.0;
-  
-  const damageRisk = Math.min(baseRisk * sizeRiskMultiplier * weightRiskMultiplier, 10);
-  
-  // 配送方法によるリスク
-  const hasTracking = cheapestOption.name.includes('追跡') || 
-                     cheapestOption.features.some(f => f.includes('追跡'));
-  const hasInsurance = cheapestOption.features.some(f => f.includes('補償'));
-  
-  const lossRisk = hasTracking ? 1 : 4;
-  const delayRisk = shippingOptions.length > 2 ? 3 : 5;
-  
+  if (volume > 50000) { // 大型商品
+    damageRisk += 2;
+    delayRisk += 1;
+  }
+
+  const weight = parseInt(productInfo.weight || '0');
+  if (weight > 3000) { // 重量商品
+    damageRisk += 1;
+    delayRisk += 2;
+  }
+
   const overallRisk = Math.round((damageRisk + delayRisk + lossRisk) / 3);
   
   return {
-    damageRisk: Math.round(damageRisk),
+    damageRisk,
     delayRisk,
     lossRisk,
     overallRisk,
-    preventionTips: generateRiskPreventionTips(productInfo.category, overallRisk, hasTracking, hasInsurance)
+    preventionTips: generatePreventionTips(productInfo.category, overallRisk)
   };
 }
 
-// 📦 梱包最適化分析
+// 📦 梱包最適化アドバイス
 function analyzePackagingOptimization(
   productInfo: ProductInfo,
   riskLevel: number
 ): PackagingAdvice {
-  const categoryPackaging: { [key: string]: string[] } = {
-    '本・書籍': ['OPP袋（防水）', 'プチプチ薄手', '角保護材', '茶封筒orダンボール'],
-    'CD・DVD': ['プラケース保護', 'プチプチ厚手', 'ダンボール小', '帯電防止材'],
-    '衣類': ['圧縮袋', 'ビニール袋', '宅配袋', '防水パック'],
-    '精密機器': ['エアキャップ厚手', 'ダンボール二重', '緩衝材多重', '静電防止袋'],
-    'ガラス製品': ['エアキャップ特厚', '固定材', 'ダンボール強化', '「壊れ物」表示'],
-    'アクセサリー': ['小袋', 'プチプチ', 'ダンボール小', '紛失防止策'],
-    'その他': ['プチプチ', 'ダンボール', 'ガムテープ', '緩衝材']
+  const materials = [];
+  const solutions = [];
+
+  // カテゴリ別推奨梱包材
+  const categoryMaterials: { [key: string]: string[] } = {
+    '衣類': ['OPP袋（防水）', 'プチプチ薄手'],
+    '本・雑誌': ['OPP袋（防水）', 'ダンボール小'],
+    'CD・DVD': ['プチプチ厚手', 'ダンボール', '緩衝材'],
+    '精密機器': ['エアキャップ厚手', 'ダンボール二重', '緩衝材多重'],
+    'ガラス製品': ['エアキャップ特厚', 'ダンボール二重', '緩衝材多重'],
+    'その他': ['プチプチ薄手', 'ダンボール']
   };
 
-  const baseMaterials = categoryPackaging[productInfo.category] || categoryPackaging['その他'];
-  
-  // リスクレベルに応じた材料追加
-  const riskBasedMaterials = [...baseMaterials];
+  const baseMaterials = categoryMaterials[productInfo.category] || categoryMaterials['その他'];
+  materials.push(...baseMaterials);
+
+  // リスクレベル別追加対策
   if (riskLevel >= 7) {
-    riskBasedMaterials.push('補強材', '多重梱包');
-  }
-  if (riskLevel >= 5) {
-    riskBasedMaterials.push('緩衝材追加');
+    materials.push('追加緩衝材', '「壊れ物」シール');
+    solutions.push('保険付き配送を強く推奨');
   }
 
+  if (riskLevel >= 5) {
+    solutions.push('丁寧な梱包で差別化');
+  }
+
+  solutions.push('100円ショップ活用でコスト削減');
+  solutions.push('梱包材の使い回しでエコ&節約');
+
   return {
-    recommendedMaterials: riskBasedMaterials,
-    costEffectiveSolutions: [
-      '100円ショップでの基本材料調達',
-      '郵便局・コンビニの無料箱活用',
-      'まとめ買いによるコスト削減',
-      'リサイクル材料の有効活用'
-    ],
-    budgetBreakdown: calculatePackagingCosts(riskBasedMaterials)
+    recommendedMaterials: materials,
+    costEffectiveSolutions: solutions,
+    budgetBreakdown: calculatePackagingCosts(materials)
   };
 }
 
@@ -347,80 +637,51 @@ function analyzeMarketStrategy(
   salePrice: number,
   currentProfit: number
 ): MarketInsights {
-  const categoryStrategies: { [key: string]: MarketInsights } = {
-    '本・書籍': {
-      competitiveAdvantage: '送料込み価格での差別化、状態の詳細説明',
-      pricingStrategy: '定価の30-50%、希少本・専門書は60%以上も可能',
-      timingAdvice: '新刊発売前後、入学・試験シーズンが需要ピーク',
-      buyerBehavior: '送料重視、書き込み・折れの有無を最も気にする',
-      demandForecast: '安定需要、電子書籍化で古い本は価値減少傾向'
-    },
-    '衣類': {
-      competitiveAdvantage: 'ブランド価値、サイズ展開、季節適合性',
-      pricingStrategy: '定価の10-40%、人気ブランドは50%以上維持',
-      timingAdvice: 'シーズン直前出品、流行に敏感な時期を狙う',
-      buyerBehavior: 'サイズ感重視、清潔感・におい対策必須',
-      demandForecast: '季節変動大、ファストファッション化で回転早い'
-    },
-    'CD・DVD': {
-      competitiveAdvantage: '帯付き・初回限定特典の有無が価格決定要因',
-      pricingStrategy: '定価の20-40%、廃盤・レア品は定価超えも',
-      timingAdvice: 'アーティスト関連ニュース、記念日前後',
-      buyerBehavior: '盤面の傷、ケースの状態を厳重チェック',
-      demandForecast: 'ストリーミング普及で需要減、コレクター需要は堅調'
-    }
-  };
+  const profitMargin = (currentProfit / salePrice) * 100;
 
-  const baseStrategy = categoryStrategies[productInfo.category];
-  if (baseStrategy) {
-    return baseStrategy;
-  }
-
-  // 汎用戦略
   return {
-    competitiveAdvantage: '商品状態の良さと丁寧な梱包・発送',
-    pricingStrategy: '同カテゴリ相場の80-120%で競争力確保',
-    timingAdvice: 'ピーク時間（平日夜、休日昼）の出品',
-    buyerBehavior: '商品写真の質と説明文の詳細度を重視',
-    demandForecast: '市場動向に応じた価格調整が成功の鍵'
+    competitiveAdvantage: profitMargin > 30 
+      ? '高利益率により価格競争力を維持可能'
+      : '配送費最適化で競争力向上が必要',
+    pricingStrategy: generatePriceRecommendation(salePrice, currentProfit, profitMargin),
+    timingAdvice: '平日午前中の出品で閲覧数最大化',
+    buyerBehavior: '送料込み価格表示で購買意欲向上',
+    demandForecast: getDemandForecast(productInfo.category)
   };
 }
 
-// 📝 詳細サマリー生成
+// 📋 詳細サマリー生成
 function generateDetailedSummary(
   productInfo: ProductInfo,
-  cheapestOption: ShippingOption,
-  fastestOption: ShippingOption,
-  currentProfit: number,
-  overallRisk: number
+  cheapest: ShippingOption,
+  fastest: ShippingOption,
+  profit: number,
+  riskLevel: number
 ): string {
-  const destination = productInfo.destination;
-  const category = productInfo.category;
-  
-  return `【${category}】${destination}配送の総合分析完了。最安は${cheapestOption.name}（¥${cheapestOption.price}）、最速は${fastestOption.name}。現在利益¥${currentProfit}、配送リスク${overallRisk}/10。利益重視なら最安配送、安全重視なら追跡付きサービスを推奨。`;
+  const profitMargin = profit > 0 ? `利益${profit}円` : `赤字${Math.abs(profit)}円`;
+  const riskText = riskLevel >= 7 ? '高リスク' : riskLevel >= 4 ? '中リスク' : '低リスク';
+
+  return `${productInfo.category}（${productInfo.salePrice}円）の最適配送戦略：
+
+💰 **利益分析**: ${cheapest.name}(${cheapest.price}円)で${profitMargin}、利益率${((profit / parseInt(productInfo.salePrice || '0')) * 100).toFixed(1)}%
+
+⚡ **速度重視**: ${fastest.name}(${fastest.deliveryDays})で迅速対応
+
+⚠️ **リスク評価**: ${riskText} - 適切な梱包で事故防止
+
+🎯 **推奨戦略**: ${profit > 500 ? '現在の価格設定で積極販売' : '配送費見直しまたは価格調整を検討'}`;
 }
 
-// 🛡️ リスク対策提案生成
-function generateRiskPreventionTips(
-  category: string,
-  riskLevel: number,
-  hasTracking: boolean,
-  hasInsurance: boolean
-): string[] {
-  const baseTips = ['適切な梱包材の使用', '商品状態の正確な記載'];
-  
-  if (!hasTracking) {
-    baseTips.push('追跡番号付きサービスへの変更検討');
-  }
-  
-  if (!hasInsurance && riskLevel >= 6) {
-    baseTips.push('補償付きオプションの検討');
-  }
+// 🛡️ 予防策アドバイス生成
+function generatePreventionTips(category: string, riskLevel: number): string[] {
+  const baseTips = [
+    '商品写真で梱包状態もアピール',
+    '配送方法を商品説明に明記',
+    '購入者との事前コミュニケーション重視'
+  ];
 
   const categoryTips: { [key: string]: string[] } = {
-    '本・書籍': ['水濡れ防止のOPP袋必須', '角の保護材使用'],
-    'CD・DVD': ['ケース割れ防止の厚手保護', '帯の保護対策'],
-    '衣類': ['湿気・においの防止策', '圧縮による皺対策'],
+    '衣類': ['圧縮袋使用で送料削減', 'においの防止策', '圧縮による皺対策'],
     '精密機器': ['静電気対策', '衝撃吸収材の多重使用', '精密機器専用配送検討'],
     'ガラス製品': ['「壊れ物」シール必須', '固定材での動き防止', '保険加入推奨']
   };
@@ -478,64 +739,60 @@ function calculatePackagingCosts(materials: string[]): Array<{material: string, 
   }));
 }
 
-// 🆘 基本分析（フォールバック）
-// 基本分析（フォールバック）
+// 🆘 基本分析（フォールバック）- エラー修正版
 function getBasicAnalysis(request: AIAnalysisRequest): AIAnalysisResult {
   const { productInfo, shippingOptions } = request;
-  const cheapest = shippingOptions.reduce((prev, curr) => 
-    prev.price < curr.price ? prev : curr
-  );
+  
+  // ✅ 空配列対策：初期値を設定
+  const cheapest = shippingOptions.length > 0 
+    ? shippingOptions.reduce((prev, curr) => prev.price < curr.price ? prev : curr)
+    : { name: 'サンプル配送', price: 300, deliveryDays: '1-2日' };
 
   const salePrice = parseInt(productInfo.salePrice ?? '') || 1500;
   const platformFee = Math.round(salePrice * 0.1);
-
-  // 基本的な利益計算
-  const profitByShipping = shippingOptions.map(option => ({
-    shippingName: option.name.replace(/🥇|🥈|🥉|📮|🐱|📦/g, '').trim(),
-    shippingCost: option.price,
-    profit: salePrice - platformFee - option.price,
-    profitRate: parseFloat(((salePrice - platformFee - option.price) / salePrice * 100).toFixed(1)),
-    deliveryDays: option.deliveryDays
-  }));
+  const profit = salePrice - platformFee - cheapest.price;
 
   return {
-    summary: `基本分析完了。${cheapest.name}（¥${cheapest.price}）が最適配送方法です。`,
-    confidence: 75,
+    summary: `基本分析: ${productInfo.category}の${cheapest.name}での配送で${profit}円の利益見込み`,
     profitAnalysis: {
-      currentProfit: 800,
-      optimizedProfit: 1000,
-      costSavings: 200,
-      improvements: ['最安配送選択', '梱包最適化'],
-      priceRecommendation: '送料込み価格での競争力強化推奨',
+      currentProfit: profit,
+      optimizedProfit: profit,
+      improvements: ['詳細分析で更なる最適化が可能'],
+      costSavings: 0,
+      priceRecommendation: '適正価格範囲内',
       breakdown: {
         salePrice,
         platformFee,
         platformName: 'メルカリ',
-        profitByShipping
+        profitByShipping: shippingOptions.map(option => ({
+          shippingName: option.name,
+          shippingCost: option.price,
+          profit: salePrice - platformFee - option.price,
+          profitRate: ((salePrice - platformFee - option.price) / salePrice) * 100,
+          deliveryDays: option.deliveryDays
+        }))
       }
     },
     riskAssessment: {
-      overallRisk: 4,
-      damageRisk: 4,
-      delayRisk: 4,
-      lossRisk: 3,
-      preventionTips: ['基本梱包で十分', '追跡サービス推奨']
+      damageRisk: 3,
+      delayRisk: 3,
+      lossRisk: 2,
+      overallRisk: 3,
+      preventionTips: ['基本的な梱包で十分', '配送業者の選択重要']
     },
     packagingAdvice: {
-      recommendedMaterials: ['プチプチ', 'ダンボール'],
-      costEffectiveSolutions: ['100円ショップ活用'],
-      budgetBreakdown: [
-        {material: 'プチプチ', cost: 50, durability: '中'},
-        {material: 'ダンボール', cost: 80, durability: '高'}
-      ]
+      recommendedMaterials: ['基本梱包材'],
+      costEffectiveSolutions: ['標準的な梱包'],
+      budgetBreakdown: [{ material: '基本梱包', cost: 100, durability: '中' }]
     },
     marketInsights: {
-      competitiveAdvantage: '価格競争力',
-      pricingStrategy: '相場適正価格',
-      timingAdvice: 'ピーク時間出品',
-      buyerBehavior: '価格重視',
+      competitiveAdvantage: '標準的な競争力',
+      pricingStrategy: '市場価格準拠',
+      timingAdvice: '通常タイミング',
+      buyerBehavior: '一般的な購買行動',
       demandForecast: '安定需要'
     },
+    confidence: 70,
     analysisId: `basic_${Date.now()}`,
     timestamp: new Date().toISOString()
   };

@@ -1,12 +1,7 @@
-// api/ai-analysis.ts (Vercel Functions)
-import OpenAI from 'openai';
+// api/ai-analysis.ts (Vercel Functions) - 修正版
+import { NextApiRequest, NextApiResponse } from 'next';
 
-// OpenAI クライアントの初期化
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-export default async function handler(req: any, res: any) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // CORS設定
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -21,6 +16,16 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    // 環境変数の確認
+    const apiKey = process.env.OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      console.error('OPENAI_API_KEY is not set');
+      return res.status(500).json({ 
+        error: 'Server configuration error: API key missing' 
+      });
+    }
+
     const { prompt, analysisType, model = 'gpt-4o', maxTokens = 800 } = req.body;
 
     if (!prompt) {
@@ -31,6 +36,12 @@ export default async function handler(req: any, res: any) {
 
     // システムプロンプトを分析タイプに応じて設定
     const systemPrompt = getSystemPrompt(analysisType);
+
+    // OpenAI API呼び出し（動的インポートを使用）
+    const { OpenAI } = await import('openai');
+    const openai = new OpenAI({
+      apiKey: apiKey,
+    });
 
     const completion = await openai.chat.completions.create({
       model: model,
@@ -127,9 +138,4 @@ function getSystemPrompt(analysisType: string): string {
   };
 
   return specificPrompts[analysisType as keyof typeof specificPrompts] || specificPrompts.comprehensive;
-}
-
-// 環境変数の検証（デプロイ時に実行される）
-if (!process.env.OPENAI_API_KEY) {
-  console.warn('⚠️ OPENAI_API_KEY が設定されていません');
 }
