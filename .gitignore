@@ -91,7 +91,6 @@ plugins/
 platforms/
 
 # EAS Build
-eas.json
 .easignore
 
 # Vercel追加設定
